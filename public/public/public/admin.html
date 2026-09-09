@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRX SPORT - Admin</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root { --drx-red: #ff003c; --drx-yellow: #ffcc00; --drx-dark: #121212; --drx-card: #1c1c1e; }
+        body { font-family: Arial, sans-serif; background-color: var(--drx-dark); color: #fff; padding: 20px; }
+        select, textarea, button { width: 100%; padding: 15px; border-radius: 6px; border: 1px solid #333; font-size: 16px; box-sizing: border-box; }
+        select, textarea { background-color: var(--drx-card); color: #fff; margin-bottom: 15px; }
+        textarea { height: 18px0; font-family: monospace; height: 200px; }
+        button { background: linear-gradient(135deg, var(--drx-red), #b3002a); color: white; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+    <h2 style="font-family:'Impact'; text-align:center;">🏁 DRX NAPI INDÍTÁS</h2>
+    <label>📍 Pálya helyszín:</label>
+    <select id="track">
+        <option value="Euro-Ring">Euro-Ring (Örkény)</option>
+        <option value="Hungaroring">Hungaroring (Mogyoród)</option>
+        <option value="Kiskunlacháza">Kiskunlacháza Repülőtér</option>
+    </select>
+    <label>📋 Napi Lista beillesztése (Kód;Idő;Név;Autó;Körök;Extrák):</label>
+    <textarea id="list-input" placeholder="DRX001;10:15;Kovács János;Ferrari 488 GTB;5 kör;Videó&#10;DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
+    <button onclick="upload()">🔥 PÁLYANAP ÉLESÍTÉSE</button>
+    <script>
+        const socket = io();
+        function upload() {
+            const track = document.getElementById('track').value;
+            const text = document.getElementById('list-input').value.trim();
+            if(!text) return alert("A lista üres!");
+            const lines = text.split('\n');
+            const bookings = [];
+            lines.forEach(line => {
+                const parts = line.split(';');
+                if(parts.length >= 4) {
+                    bookings.push({ code: parts[0].trim().toUpperCase(), time: parts[1].trim(), name: parts[2].trim(), car: parts[3].trim(), laps: parts[4].trim(), extras: parts[5] ? parts[5].trim() : "Nincs" });
+                }
+            });
+            socket.emit('admin-upload-list', { track, bookings });
+            alert("Sikeres feltöltés! " + bookings.length + " vendég szétosztva az autók között.");
+        }
+    </script>
+</body>
+</html>
