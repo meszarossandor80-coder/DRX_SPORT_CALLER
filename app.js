@@ -8,11 +8,8 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.json());
-
-// Ez a sor változott: a mappa helyett közvetlenül a főkönyvtárból olvassa a fájlokat
 app.use(express.static(__dirname));
 
-// DRX SPORT Flotta (33 jármű/élmény)
 const drxFleet = [
     "BMW M4 Competition", "Chevrolet Camaro SS", "Dodge Challenger Hellcat 500LE", 
     "Dodge Challenger Hellcat 700LE", "Ferrari 458 Italia", "Ferrari 488 GTB", 
@@ -32,7 +29,6 @@ let currentTrack = "";
 
 drxFleet.forEach(car => { dailyBookings[car] = []; });
 
-// Útvonalak közvetlen átirányítása a fájlokra
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 app.get('/instructor', (req, res) => res.sendFile(path.join(__dirname, 'instructor.html')));
@@ -68,6 +64,10 @@ io.on('connection', (socket) => {
         }
 
         if (found) {
+            if (found.status === "Teljesített ✅") {
+                socket.emit('error-message', 'Ezzel a kóddal már lefutották a köröket!');
+                return;
+            }
             found.status = "Megérkezett (Váróban)";
             found.socketId = socket.id;
             socket.join(foundCar);
@@ -95,6 +95,18 @@ io.on('connection', (socket) => {
                 io.to(car).emit('update-instructor-list', dailyBookings[car]);
                 break;
             }
+        }
+    });
+
+    // ÚJ: Amikor az instruktor lezárja a futamot
+    socket.on('complete-drive', ({ car, code }) => {
+        let b = dailyBookings[car].find(x => x.code === code);
+        if (b) {
+            b.status = "Teljesített ✅";
+            if (b.socketId && io.sockets.sockets.get(b.socketId)) {
+                io.sockets.sockets.get(b.socketId).emit('drive-completed-screen');
+            }
+            io.to(car).emit('update-instructor-list', dailyBookings[car]);
         }
     });
 });
