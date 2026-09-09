@@ -13,7 +13,10 @@
         .status-Megérkezett { border-left: 6px solid #007bff; }
         .status-Behívva { border-left: 6px solid var(--drx-yellow); }
         .status-Úton { border-left: 6px solid #28a745; background: #07220d; }
-        button { background: linear-gradient(135deg, var(--drx-yellow), #cc9900); color: #000; padding: 12px 20px; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; width: 100%; font-size: 1rem; margin-top: 10px; }
+        .status-Teljesített { border-left: 6px solid #444; opacity: 0.4; background: #151515; }
+        button { color: #000; padding: 12px 20px; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; width: 100%; font-size: 1rem; margin-top: 10px; }
+        .btn-call { background: linear-gradient(135deg, var(--drx-yellow), #cc9900); }
+        .btn-complete { background: linear-gradient(135deg, #28a745, #1e7e34); color: #fff; }
     </style>
 </head>
 <body>
@@ -47,19 +50,21 @@
             listDiv.innerHTML = '';
             if(drivers.length === 0) { listDiv.innerHTML = '<p style="color:#666;">Nincs mára ütemezett vendég ehhez az autóhoz.</p>'; return; }
             drivers.forEach(d => {
-                let cleanStatus = d.status.includes("Megérkezett") ? "Megérkezett" : d.status.includes("Behívva") ? "Behívva" : d.status.includes("Úton") ? "Úton" : "Várakozik";
+                let cleanStatus = d.status.includes("Megérkezett") ? "Megérkezett" : d.status.includes("Behívva") ? "Behívva" : d.status.includes("Úton") ? "Úton" : d.status.includes("Teljesített") ? "Teljesített" : "Várakozik";
                 listDiv.innerHTML += `
                     <div class="card status-${cleanStatus}">
                         <h3 style="margin:0 0 5px 0;">${d.time} - ${d.name}</h3>
                         <p style="margin:3px 0; color:#aaa;">Kód: <b>${d.code}</b> | Körök: <b>${d.laps}</b></p>
                         <p style="margin:3px 0; color:#ff003c;">Extrák: <b>${d.extras || 'Nincs'}</b></p>
                         <p style="margin:5px 0 0 0;">Státusz: <b style="color:var(--drx-yellow)">${d.status}</b></p>
-                        ${d.status === 'Megérkezett (Váróban)' ? `<button onclick="call('${d.code}')">📢 BEHÍVÁS</button>` : ''}
+                        ${d.status === 'Megérkezett (Váróban)' ? `<button class="btn-call" onclick="call('${d.code}')">📢 BEHÍVÁS</button>` : ''}
+                        ${(d.status.includes('Behívva') || d.status.includes('Úton')) ? `<button class="btn-complete" onclick="complete('${d.code}')">🏁 MENET TELJESÍTVE</button>` : ''}
                     </div>
                 `;
             });
         });
         function call(code) { socket.emit('call-guest', { car: selectedCar, code: code }); }
+        function complete(code) { if(confirm("Biztosan lefutott a menet és kész a vendég?")) { socket.emit('complete-drive', { car: selectedCar, code: code }); } }
     </script>
 </body>
 </html>
