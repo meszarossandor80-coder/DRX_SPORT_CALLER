@@ -8,7 +8,9 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Ez a sor változott: a mappa helyett közvetlenül a főkönyvtárból olvassa a fájlokat
+app.use(express.static(__dirname));
 
 // DRX SPORT Flotta (33 jármű/élmény)
 const drxFleet = [
@@ -28,18 +30,19 @@ const drxFleet = [
 let dailyBookings = {}; 
 let currentTrack = "";
 
-// Alapértelmezett üres listák az autóknak
 drxFleet.forEach(car => { dailyBookings[car] = []; });
+
+// Útvonalak közvetlen átirányítása a fájlokra
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
+app.get('/instructor', (req, res) => res.sendFile(path.join(__dirname, 'instructor.html')));
 
 io.on('connection', (socket) => {
     
-    // Reggeli lista feltöltése az adminról
     socket.on('admin-upload-list', ({ track, bookings }) => {
         currentTrack = track;
-        // Alaphelyzetbe állítás
         drxFleet.forEach(car => { dailyBookings[car] = []; });
         
-        // Szétosztás autók szerint
         bookings.forEach(b => {
             if (dailyBookings[b.car]) {
                 dailyBookings[b.car].push({
@@ -50,13 +53,11 @@ io.on('connection', (socket) => {
         io.emit('track-day-opened', currentTrack);
     });
 
-    // Instruktor belépése az autóhoz
     socket.on('instructor-connect', (carName) => {
         socket.join(carName);
         socket.emit('update-instructor-list', dailyBookings[carName] || []);
     });
 
-    // Vendég QR-kódos csekkolása
     socket.on('guest-arrival', (bookingCode) => {
         let found = null;
         let foundCar = "";
@@ -77,7 +78,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Instruktor behívja a vendéget
     socket.on('call-guest', ({ car, code }) => {
         let b = dailyBookings[car].find(x => x.code === code);
         if (b && b.socketId) {
@@ -87,7 +87,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Vendég visszajelez, hogy elindult
     socket.on('guest-acknowledged', (bookingCode) => {
         for (let car in dailyBookings) {
             let b = dailyBookings[car].find(x => x.code === bookingCode);
