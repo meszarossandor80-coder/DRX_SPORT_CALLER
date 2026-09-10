@@ -7,7 +7,8 @@
     <style>
         :root { --drx-red: #ff003c; --drx-yellow: #ffcc00; --drx-dark: #121212; --drx-card: #1c1c1e; }
         body { font-family: Arial, sans-serif; background-color: var(--drx-dark); color: #fff; padding: 15px; margin: 0; }
-        select { width: 100%; padding: 15px; background: var(--drx-card); color: #fff; border: 1px solid #333; font-size: 1.1rem; border-radius: 8px; margin-bottom: 20px; }
+        select, input[type="text"] { width: 100%; padding: 15px; background: var(--drx-card); color: #fff; border: 1px solid #333; font-size: 1.1rem; border-radius: 8px; margin-bottom: 20px; box-sizing: border-box; }
+        input[type="text"]::placeholder { color: #666; }
         .card { background: var(--drx-card); padding: 15px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         .status-Várakozik { border-left: 6px solid #666; }
         .status-Megérkezett { border-left: 6px solid #007bff; }
@@ -17,18 +18,44 @@
         button { color: #000; padding: 12px 20px; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; width: 100%; font-size: 1rem; margin-top: 10px; }
         .btn-call { background: linear-gradient(135deg, var(--drx-yellow), #cc9900); }
         .btn-complete { background: linear-gradient(135deg, #28a745, #1e7e34); color: #fff; }
+        
+        /* Új stílusok a szelfi panelhez */
+        .setup-section { background: var(--drx-card); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #2d2d30; }
+        .btn-photo { background: #333; color: white; border: 1px solid #444; margin-top: 5px; }
+        .btn-photo:hover { background: #444; }
     </style>
 </head>
 <body>
     <h2 style="font-family:'Impact'; letter-spacing: 1px;">🏎️ DRX INSTRUKTOR</h2>
-    <label>Válaszd ki az autódat:</label>
-    <select id="car-select" onchange="connectCar()">
-        <option value="">-- VÁLASSZ AUTÓT --</option>
-    </select>
-    <div id="driver-list">Válassz autót a lista megtekintéséhez.</div>
+    
+    <!-- REGISZTRÁCIÓS ÉS BEJELENTKEZŐ PANEL -->
+    <div class="setup-section">
+        <label>1. Válaszd ki az autódat:</label>
+        <select id="car-select" onchange="connectCar()">
+            <option value="">-- VÁLASSZ AUTÓT --</option>
+        </select>
+
+        
+            <label>2. Add meg a neved:</label>
+            <input type="text" id="instructor-name-input" placeholder="Pl: Szabó Péter" oninput="connectCar()">
+            
+            <label>3. Készíts egy szelfit, hogy a vendég megismerjen:</label>
+            <input type="file" id="selfie-file-input" accept="image/*" capture="user" style="display:none;" onchange="previewAndSaveSelfie(event)">
+            <button type="button" class="btn-photo" onclick="document.getElementById('selfie-file-input').click()">🤳 SZELFI KÉSZÍTÉSE / KAMERA</button>
+            
+            <div style="text-align: center;">
+                <img id="selfie-preview-img" style="display:none; width: 100px; height: 100px; object-fit: cover; border-radius: 50%; margin: 15px auto 0 auto; border: 2px solid var(--drx-red);">
+            </div>
+        </div>
+    </div>
+
+    <div id="driver-list">Válassz autót és add meg a neved a lista megtekintéséhez.</div>
+
     <script>
         const socket = io();
         let selectedCar = "";
+        let instructorSelfieBase64 = ""; // Ide mentjük a képet szövegként
+
         const cars = [
             "BMW M4 Competition", "Chevrolet Camaro SS", "Dodge Challenger Hellcat 500LE", "Dodge Challenger Hellcat 700LE", 
             "Ferrari 458 Italia", "Ferrari 488 GTB", "Ferrari F8 Tributo", "Ferrari 458 Challenge Race Taxi", "Ferrari California",  
@@ -38,17 +65,62 @@
             "Nissan GT-R 650 LE", "Nissan GT-R 1020 LE", "Porsche 911 GT3", "Porsche 911 GTS", "Porsche 911 Turbo S", 
             "Formula Renault", "Scania R500", "Subaru WRX", "Toyota Yaris GR", "VIP ALLIN FORMULA VEZETÉS", "Trükkös Suzuki"
         ];
+
         const select = document.getElementById('car-select');
         cars.forEach(car => { select.innerHTML += `<option value="${car}">${car}</option>`; });
+
+        // ÚJ: Szelfi kép feldolgozása és előnézete
+        function previewAndSaveSelfie(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('selfie-preview-img');
+                    img.src = e.target.result;
+                    img.style.display = 'inline-block';
+                    instructorSelfieBase64 = e.target.result; // Elmentjük a Base64 stringet
+                    connectCar(); // Újraküldjük a frissített adatokat a szelfivel együtt
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
         function connectCar() {
             selectedCar = select.value;
-            if(!selectedCar) return;
-            socket.emit('instructor-connect', selectedCar);
+            if(!selectedCar) {
+                document.getElementById('instructor-identity-box').style.display = 'none';
+                return;
+            }
+
+            // Ha választott autót, megjelenítjük a név és szelfi mezőket
+            document.getElementById('instructor-identity-box').style.display = 'block';
+
+            const instructorName = document.getElementById('instructor-name-input').value.trim();
+            if(!instructorName) {
+                document.getElementById('driver-list').innerHTML = '<p style="color:var(--drx-yellow);">Kérjük, írd be a nevedet is a lista betöltéséhez!</p>';
+                return;
+            }
+
+            // MÓDOSÍTVA: Az autó mellé elküldjük a nevet és a készített szelfit is a szervernek
+            socket.emit('instructor-connect', { 
+                carName: selectedCar, 
+                instructorName: instructorName, 
+                selfie: instructorSelfieBase64 
+            });
         }
+
         socket.on('update-instructor-list', (drivers) => {
             const listDiv = document.getElementById('driver-list');
             listDiv.innerHTML = '';
-            if(drivers.length === 0) { listDiv.innerHTML = '<p style="color:#666;">Nincs mára ütemezett vendég ehhez az autóhoz.</p>'; return; }
+            
+            const instructorName = document.getElementById('instructor-name-input').value.trim();
+            if(!selectedCar || !instructorName) return;
+
+            if(drivers.length === 0) { 
+                listDiv.innerHTML = '<p style="color:#666;">Nincs mára ütemezett vendég ehhez az autóhoz.</p>'; 
+                return; 
+            }
+
             drivers.forEach(d => {
                 let cleanStatus = d.status.includes("Megérkezett") ? "Megérkezett" : d.status.includes("Behívva") ? "Behívva" : d.status.includes("Úton") ? "Úton" : d.status.includes("Teljesített") ? "Teljesített" : "Várakozik";
                 listDiv.innerHTML += `
@@ -63,8 +135,22 @@
                 `;
             });
         });
-        function call(code) { socket.emit('call-guest', { car: selectedCar, code: code }); }
-        function complete(code) { if(confirm("Biztosan lefutott a menet és kész a vendég?")) { socket.emit('complete-drive', { car: selectedCar, code: code }); } }
+
+        function call(code) { 
+            socket.emit('call-guest', { car: selectedCar, code: code }); 
+        }
+
+        function complete(code) { 
+            const instructorName = document.getElementById('instructor-name-input').value.trim();
+            if(confirm("Biztosan lefutott a menet és kész a vendég?")) { 
+                // MÓDOSÍTVA: Beküldjük az oktató nevét is a lezáráskor
+                socket.emit('complete-drive', { 
+                    car: selectedCar, 
+                    code: code, 
+                    instructorName: instructorName 
+                }); 
+            } 
+        }
     </script>
 </body>
 </html>
