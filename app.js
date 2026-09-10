@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const fs = require('fs'); // ÚJ: Értékelések mentéséhez és importáláshoz
+const fs = require('fs'); // Értékelések biztonságos fájlba mentéséhez
 
 const app = express();
 const server = http.createServer(app);
@@ -11,7 +11,7 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.json());
 app.use(express.static(__dirname));
 
-const EVAL_FILE = path.join(__dirname, 'evaluations.json'); // Fájl az értékeléseknek
+const EVAL_FILE = path.join(__dirname, 'evaluations.json'); // Fájl az értékelések megőrzéséhez
 
 const drxFleet = [
     "BMW M4 Competition", "Chevrolet Camaro SS", "Dodge Challenger Hellcat 500LE", 
@@ -29,8 +29,9 @@ const drxFleet = [
 
 let dailyBookings = {}; 
 let currentTrack = "";
+let activeInstructors = {}; // Aktív oktatók tárolása (autó -> { név, szelfi })
 
-// Segédfüggvények az értékelések fájlba mentéséhez
+// Segédfüggvények az értékelések fájlból való betöltéséhez és mentéséhez
 function loadEvaluations() {
     try {
         if (fs.existsSync(EVAL_FILE)) {
@@ -51,7 +52,7 @@ function saveEvaluations(evals) {
     }
 }
 
-// Inicializáljuk az értékelések listáját a mentett fájlból
+// Inicializáljuk az értékelések listáját a fájlból
 let evaluations = loadEvaluations();
 
 drxFleet.forEach(car => { dailyBookings[car] = []; });
@@ -62,7 +63,7 @@ app.get('/instructor', (req, res) => res.sendFile(path.join(__dirname, 'instruct
 
 io.on('connection', (socket) => {
     
-    // Amikor egy kliens csatlakozik, elküldjük az aktuális értékelési statisztikákat
+    // Amikor egy kliens (pl. az Admin) csatlakozik, elküldjük az aktuális értékelési statisztikákat
     socket.emit('update-eval-report', calculateInstructorStats());
 
     socket.on('admin-upload-list', ({ track, bookings }) => {
@@ -79,8 +80,20 @@ io.on('connection', (socket) => {
         io.emit('track-day-opened', currentTrack);
     });
 
-    socket.on('instructor-connect', (carName) => {
+    // MÓDOSÍTVA: Támogatja a régi egyszerű stringes és az új szelfis/neves bejelentkezést is
+    socket.on('instructor-connect', (data) => {
+        const carName = data.carName || data;
+        const instructorName = data.instructorName || "Oktató";
+        const selfie = data.selfie || "";
+
         socket.join(carName);
+        
+        // Elmentjük a szerver memóriájába, hogy ki vezeti ezt az autót és mi a szelfije
+        activeInstructors[carName] = {
+            name: instructorName,
+            selfie: selfie
+        };
+
         socket.emit('update-instructor-list', dailyBookings[carName] || []);
     });
 
@@ -108,12 +121,22 @@ io.on('connection', (socket) => {
         }
     });
 
+    // MÓDOSÍTVA: A riasztáskor átküldi a vendégnek az oktató nevét ÉS a fotóját is
     socket.on('call-guest', ({ car, code }) => {
         let b = dailyBookings[car].find(x => x.code === code);
         if (b && b.socketId) {
             b.status = "Behívva (Csörög)";
-            // Továbbítjuk az oktató nevét is a vendégnek, ha fel van töltve
-            io.to(b.socketId).emit('you-are-called', { instructor: b.instructor || "" });
+            
+            // Lekérjük a reggel bejelentkezett oktató adatait az autóhoz
+            const instructorData = activeInstructors[car] || { name: "Oktatód", selfie: "" };
+            b.instructor = instructorData.name; // Elmentjük a vendég adatai közé is
+
+            // Továbbítás a vendég telefonjára
+            io.to(b.socketId).emit('you-are-called', { 
+                instructor: instructorData.name,
+                selfie: instructorData.selfie 
+            });
+
             io.to(car).emit('update-instructor-list', dailyBookings[car]);
         }
     });
@@ -129,17 +152,16 @@ io.on('connection', (socket) => {
         }
     });
 
-    // MÓDOSÍTVA: Amikor az instruktor lezárja a futamot
+    // MÓDOSÍTVA: Amikor az instruktor lezárja a futamot, elindítja a vendégnél az értékelést
     socket.on('complete-drive', ({ car, code, instructorName }) => {
         let b = dailyBookings[car].find(x => x.code === code);
         if (b) {
             b.status = "Teljesített ✅";
             
-            // Ha az instruktor felületen megadták vagy módosították az oktató nevét, elmentjük
             if (instructorName) b.instructor = instructorName;
 
             if (b.socketId && io.sockets.sockets.get(b.socketId)) {
-                // Értesítjük a vendéget és átadjuk az oktató nevét az értékeléshez
+                // Aktiváljuk az index.html-en az értékelő ablakot
                 io.sockets.sockets.get(b.socketId).emit('drive-finished', { instructor: b.instructor || "Oktatód" });
             }
             io.to(car).emit('update-instructor-list', dailyBookings[car]);
@@ -148,8 +170,6 @@ io.on('connection', (socket) => {
 
     // ÚJ: Vendég értékelésének fogadása és mentése
     socket.on('submit-evaluation', (data) => {
-        console.log("Új értékelés érkezett:", data);
-        
         evaluations.push({
             bookingCode: data.bookingCode,
             instructor: data.instructor,
@@ -158,13 +178,13 @@ io.on('connection', (socket) => {
             timestamp: data.timestamp || new Date()
         });
 
-        saveEvaluations(evaluations); // Mentés JSON fájlba
+        saveEvaluations(evaluations); // Biztonságos mentés JSON fájlba
 
-        // Élő frissítés küldése az admin felületnek
+        // Azonnali élő frissítés küldése az admin felületnek
         io.emit('update-eval-report', calculateInstructorStats());
     });
 
-    // ÚJ: Értékelések törlése gomb az adminnak (opcionális tiszta laphoz)
+    // ÚJ: Értékelések törlése az admin kérésére
     socket.on('clear-all-evaluations', () => {
         evaluations = [];
         saveEvaluations(evaluations);
@@ -172,7 +192,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// ÚJ: Összesített statisztika számító függvény az oktatókról
+// ÚJ: Összesített statisztika számító függvény az admin táblázathoz
 function calculateInstructorStats() {
     const stats = {};
 
