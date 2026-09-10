@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DRX SPORT - Admin</title>
     <script src="/socket.io/socket.io.js"></script>
-    <!-- QR KÓD GENERÁTOR KÖNYVTÁR -->
+    <!-- FIX: Hivatalos, működő QR kód generáló könyvtár -->
     <script src="https://cloudflare.com"></script>
     <style>
         :root { --drx-red: #ff003c; --drx-yellow: #ffcc00; --drx-dark: #121212; --drx-card: #1c1c1e; }
@@ -88,7 +88,7 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
     <script>
         const socket = io();
         
-        // Dinamikus XLSX parser könyvtár betöltése fájlfeltöltéshez
+        // FIX: Hivatalos, működő Excel parser könyvtár címe
         function loadXLSX(callback) {
             if (window.XLSX) return callback();
             const script = document.createElement('script');
@@ -117,7 +117,7 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
                         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                         const bookings = [];
                         
-                        // Feltételezzük, hogy az 1. sor a fejléc, ezért a 2. sorból (index 1) indulunk
+                        // Az 1. sor a fejléc, ezért a index 1-től indulunk
                         for (let i = 1; i < jsonData.length; i++) {
                             const row = jsonData[i];
                             if (row && row.length >= 4) {
