@@ -57,13 +57,15 @@ let evaluations = loadEvaluations();
 
 drxFleet.forEach(car => { dailyBookings[car] = []; });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+// 📍 BIZTONSÁGI FIX ÚTVONALAK: A főoldal és a /vendeg is a biztosan meglévő index.html-t tölti be!
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html'))); 
+app.get('/vendeg', (req, res) => res.sendFile(path.join(__dirname, 'index.html'))); 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 app.get('/instructor', (req, res) => res.sendFile(path.join(__dirname, 'instructor.html')));
 
 io.on('connection', (socket) => {
     
-    // Amikor egy kliens (pl. az Admin) csatlakozik, elküldjük az aktuális értékelési statisztikákat
+    // Amikor az Admin csatlakozik, elküldjük az aktuális értékelési statisztikákat
     socket.emit('update-eval-report', calculateInstructorStats());
 
     socket.on('admin-upload-list', ({ track, bookings }) => {
@@ -80,7 +82,6 @@ io.on('connection', (socket) => {
         io.emit('track-day-opened', currentTrack);
     });
 
-    // MÓDOSÍTVA: Támogatja a régi egyszerű stringes és az új szelfis/neves bejelentkezést is
     socket.on('instructor-connect', (data) => {
         const carName = data.carName || data;
         const instructorName = data.instructorName || "Oktató";
@@ -88,7 +89,6 @@ io.on('connection', (socket) => {
 
         socket.join(carName);
         
-        // Elmentjük a szerver memóriájába, hogy ki vezeti ezt az autót és mi a szelfije
         activeInstructors[carName] = {
             name: instructorName,
             selfie: selfie
@@ -121,17 +121,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // MÓDOSÍTVA: A riasztáskor átküldi a vendégnek az oktató nevét ÉS a fotóját is
     socket.on('call-guest', ({ car, code }) => {
         let b = dailyBookings[car].find(x => x.code === code);
         if (b && b.socketId) {
             b.status = "Behívva (Csörög)";
             
-            // Lekérjük a reggel bejelentkezett oktató adatait az autóhoz
             const instructorData = activeInstructors[car] || { name: "Oktatód", selfie: "" };
-            b.instructor = instructorData.name; // Elmentjük a vendég adatai közé is
+            b.instructor = instructorData.name; 
 
-            // Továbbítás a vendég telefonjára
             io.to(b.socketId).emit('you-are-called', { 
                 instructor: instructorData.name,
                 selfie: instructorData.selfie 
@@ -152,7 +149,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // MÓDOSÍTVA: Amikor az instruktor lezárja a futamot, elindítja a vendégnél az értékelést
     socket.on('complete-drive', ({ car, code, instructorName }) => {
         let b = dailyBookings[car].find(x => x.code === code);
         if (b) {
@@ -161,14 +157,14 @@ io.on('connection', (socket) => {
             if (instructorName) b.instructor = instructorName;
 
             if (b.socketId && io.sockets.sockets.get(b.socketId)) {
-                // Aktiváljuk az index.html-en az értékelő ablakot
+                // Biztosítjuk, hogy mindkét verziójú vendégoldali eseményt kiváltsa a biztonság kedvéért
                 io.sockets.sockets.get(b.socketId).emit('drive-finished', { instructor: b.instructor || "Oktatód" });
+                io.sockets.sockets.get(b.socketId).emit('drive-completed-screen', { instructor: b.instructor || "Oktatód" });
             }
             io.to(car).emit('update-instructor-list', dailyBookings[car]);
         }
     });
 
-    // ÚJ: Vendég értékelésének fogadása és mentése
     socket.on('submit-evaluation', (data) => {
         evaluations.push({
             bookingCode: data.bookingCode,
@@ -178,13 +174,10 @@ io.on('connection', (socket) => {
             timestamp: data.timestamp || new Date()
         });
 
-        saveEvaluations(evaluations); // Biztonságos mentés JSON fájlba
-
-        // Azonnali élő frissítés küldése az admin felületnek
+        saveEvaluations(evaluations);
         io.emit('update-eval-report', calculateInstructorStats());
     });
 
-    // ÚJ: Értékelések törlése az admin kérésére
     socket.on('clear-all-evaluations', () => {
         evaluations = [];
         saveEvaluations(evaluations);
@@ -192,7 +185,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// ÚJ: Összesített statisztika számító függvény az admin táblázathoz
 function calculateInstructorStats() {
     const stats = {};
 
