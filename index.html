@@ -17,25 +17,35 @@
         .alarm-box { border: 4px solid var(--drx-yellow); padding: 30px; border-radius: 15px; background: #111; animation: pulse 1s infinite alternate; }
         .btn-confirm { background: linear-gradient(135deg, #00c851, #007e33); font-size: 1.4rem; padding: 20px; margin-top: 30px; }
         @keyframes pulse { 0% { box-shadow: 0 0 10px var(--drx-yellow); } 100% { box-shadow: 0 0 30px var(--drx-red); border-color: var(--drx-red); } }
+        
+        /* Új stílusok az értékelő gombokhoz */
+        .rating-btn { width: 42px; height: 42px; border: 2px solid #444; background: #2c2c2e; color: white; border-radius: 50%; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .rating-btn:hover { border-color: var(--drx-red); }
     </style>
 </head>
 <body>
     <div class="logo">DRX <span>SPORT</span></div>
     <div class="sub">Helyszíni Bejelentkezés</div>
+    
+    <!-- BEJELENTKEZÉS PANEL -->
     <div id="step-login" class="box">
         <h3 style="margin-top:0;">Üdvözlünk a pályán!</h3>
         <p style="color:#aaa; font-size:0.95rem;">A kezdéshez add meg a foglalási vagy kuponkódodat:</p>
         <input type="text" id="booking-code" placeholder="Pl: DRX-1234">
         <button onclick="checkInGuest()">Becsekkolás 🏁</button>
     </div>
+    
+    <!-- VÁRAKOZÓ / UTAS PANEL -->
     <div id="step-waiting" class="box" style="display:none;">
-        <h2 style="color: var(--drx-yellow);">Sikeres Regisztráció!</h2>
+        <h2 id="waiting-title" style="color: var(--drx-yellow);">Sikeres Regisztráció!</h2>
         <p>Autód: <b id="display-car" style="color:var(--drx-red); font-size:1.3rem;">-</b></p>
         <p>Időpont: <b id="display-time">-</b> | Körök: <b id="display-laps">-</b></p>
-        <div style="background:#2c2c2e; padding:10px; border-radius:6px; margin:20px 0; font-size:0.9rem; color:#ffcc00;">
+        <div id="waiting-info-box" style="background:#2c2c2e; padding:10px; border-radius:6px; margin:20px 0; font-size:0.9rem; color:#ffcc00;">
             ℹ️ Ne zárd be ezt az oldalt. Hangjelzéssel fogunk hívni, ha sorra kerülsz!
         </div>
     </div>
+    
+    <!-- RIASZTÁS / BEHÍVÓ PANEL -->
     <div id="step-alarm" class="alarm-screen">
         <div class="alarm-box">
             <h1 style="color: var(--drx-red); margin:0; font-size:2.5rem; font-family:'Impact';">🚨 TE KÖVETKEZEL! 🚨</h1>
@@ -43,34 +53,117 @@
             <button class="btn-confirm" onclick="confirmGoing()">INDULOK A KAPUHOZ! 🏁</button>
         </div>
     </div>
+
+    <!-- ÚJ: ELÉGEDETTSÉGI ÉRTÉKELŐ PANEL -->
+    <div id="step-evaluation" class="box" style="display:none; border: 2px solid var(--drx-red);">
+        <h2 style="color: var(--drx-red); margin-top:0;">Hogy érezted magad? 🏎️</h2>
+        <p>Kérjük, értékeld az oktatód (<b id="eval-instructor-name" style="color:var(--drx-yellow);">-</b>) munkáját egy 1-10-ig terjedő skálán!</p>
+        
+        <div class="rating-scale" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 25px 0;">
+            <!-- A gombok JavaScriptből generálódnak ide -->
+        </div>
+
+        <textarea id="eval-comment" placeholder="Írj pár szót az élményről (opcionális)..." style="width: 100%; height: 80px; border-radius: 8px; padding: 10px; border: 1px solid #444; background: #2c2c2e; color: white; box-sizing: border-box; resize: none; font-size: 1rem;"></textarea>
+        
+        <button id="submit-eval-btn" onclick="sendEvaluation()" style="margin-top: 20px; background: linear-gradient(135deg, #00c851, #007e33);" disabled>Értékelés elküldése 🏁</button>
+    </div>
+
     <audio id="alarm-sound" src="https://google.com" preload="auto" loop></audio>
+    
     <script>
         const socket = io();
         let myCode = "";
+        let selectedRating = null;
+        let myInstructor = ""; // Mentjük az oktató nevét az értékeléshez
+
         function checkInGuest() {
             myCode = document.getElementById('booking-code').value.toUpperCase().trim();
             if(!myCode) return alert("Kérjük, írj be egy kódot!");
             socket.emit('guest-arrival', myCode);
         }
+
         socket.on('guest-arrival-confirmed', (data) => {
             document.getElementById('step-login').style.display = 'none';
             document.getElementById('step-waiting').style.display = 'block';
             document.getElementById('display-car').innerText = data.car;
             document.getElementById('display-time').innerText = data.time;
             document.getElementById('display-laps').innerText = data.laps;
+            // Ha a szerver elküldi az oktató nevét a bejelentkezéskor, elmentjük
+            if(data.instructor) myInstructor = data.instructor; 
             alert("Sikeresen bejelentkeztél! Kérjük engedélyezd a hangot, ha a böngésző kéri.");
         });
-        socket.on('you-are-called', () => {
+
+        socket.on('you-are-called', (data) => {
+            // Ha a behíváskor küldi el a szerver az oktatót:
+            if(data && data.instructor) myInstructor = data.instructor;
+            
             document.getElementById('step-alarm').style.display = 'flex';
             document.getElementById('alarm-sound').play().catch(e => console.log(e));
             if (navigator.vibrate) navigator.vibrate();
         });
+
         function confirmGoing() {
             document.getElementById('alarm-sound').pause();
             document.getElementById('step-alarm').style.display = 'none';
+            
+            // Átállítjuk a várakozó panelt menet közbeni állapotra
+            document.getElementById('waiting-title').innerText = "Vezetés folyamatban... 🏎️";
+            document.getElementById('waiting-title').style.color = "#00c851";
+            document.getElementById('waiting-info-box').innerText = "Élvezd a száguldást! Miután visszaérkeztél a boxutcába, itt tudod majd értékelni az oktatódat.";
+            
             socket.emit('guest-acknowledged', myCode);
             alert("Az instruktorod már vár rád a kapunál!");
         }
+
+        // ÚJ FONTOS ESEMÉNY: Amikor az oktató lezárja a menetet a saját panelén
+        socket.on('drive-finished', (data) => {
+            // Biztosítjuk, hogy tudjuk az oktató nevét
+            if(data && data.instructor) myInstructor = data.instructor;
+            
+            document.getElementById('step-waiting').style.display = 'none';
+            document.getElementById('eval-instructor-name').innerText = myInstructor || "Oktatód";
+            
+            // Generáljuk le az 1-10 gombokat
+            const scaleContainer = document.querySelector('.rating-scale');
+            scaleContainer.innerHTML = '';
+            selectedRating = null;
+            document.getElementById('submit-eval-btn').disabled = true;
+
+            for (let i = 1; i <= 10; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'rating-btn';
+                btn.innerText = i;
+                btn.onclick = function() {
+                    document.querySelectorAll('.rating-btn').forEach(b => b.style.background = '#2c2c2e');
+                    btn.style.background = 'var(--drx-red)';
+                    selectedRating = i;
+                    document.getElementById('submit-eval-btn').disabled = false;
+                };
+                scaleContainer.appendChild(btn);
+            }
+
+            document.getElementById('step-evaluation').style.display = 'block';
+        });
+
+        // ÚJ: Értékelés elküldése a szervernek
+        function sendEvaluation() {
+            const comment = document.getElementById('eval-comment').value;
+            
+            socket.emit('submit-evaluation', {
+                bookingCode: myCode,
+                instructor: myInstructor || "Ismeretlen oktató",
+                rating: selectedRating,
+                comment: comment,
+                timestamp: new Date()
+            });
+
+            document.getElementById('step-evaluation').innerHTML = `
+                <h2 style="color: #00c851;">Köszönjük a visszajelzést!</h2>
+                <p style="font-size:1.1rem; padding: 10px 0;">A DRX Sport csapata reméli, hogy felejthetetlen élményben volt részed!</p>
+                <p style="color:#aaa;">Biztonságos hazautat kívánunk! 🏁</p>
+            `;
+        }
+
         socket.on('error-message', (msg) => alert(msg));
     </script>
 </body>
