@@ -14,6 +14,7 @@
         textarea { font-family: monospace; height: 150px; resize: vertical; }
         button { background: linear-gradient(135deg, var(--drx-red), #b3002a); color: white; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
         
+        /* Értékelési táblázat és QR kód konténer stílusai */
         .report-section { background: var(--drx-card); padding: 20px; border-radius: 12px; margin-top: 30px; border: 1px solid #2d2d30; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .eval-table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; background: #111; }
         .eval-table th, .eval-table td { padding: 12px; border: 1px solid #2d2d30; }
@@ -23,6 +24,7 @@
         .comment-list { margin: 0; padding-left: 20px; color: #ccc; font-size: 0.95rem; }
         .comment-list li { margin-bottom: 4px; font-style: italic; }
 
+        /* QR-kód kártyák elrendezése */
         .qr-card-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
         .qr-card { background: #fff; color: #000; padding: 10px; border-radius: 8px; text-align: center; font-size: 13px; font-weight: bold; }
         .qr-code-canvas { display: flex; justify-content: center; margin: 8px 0; }
@@ -63,6 +65,7 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
     <div class="report-section">
         <h3 style="font-family:'Impact'; margin-top:0; color: var(--drx-yellow); letter-spacing: 1px;">📊 INSTRUKTORI ÉRTÉKELÉSEK</h3>
         <p style="color: #888; font-size: 0.9rem; margin: 0;">A vendégek által beküldött 1-10-es elégedettségi mutatók valós időben:</p>
+        
         <table class="eval-table">
             <thead>
                 <tr>
@@ -78,12 +81,14 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
                 </tr>
             </tbody>
         </table>
+        
         <button class="clear-btn" onclick="clearEvaluations()">Statisztikák nullázása</button>
     </div>
 
     <script>
         const socket = io();
         
+        // Dinamikus XLSX parser könyvtár betöltése fájlfeltöltéshez
         function loadXLSX(callback) {
             if (window.XLSX) return callback();
             const script = document.createElement('script');
@@ -98,6 +103,7 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
                 const fileInput = document.getElementById('excel-file-input');
                 const textInput = document.getElementById('list-input').value.trim();
                 
+                // Ha van kiválasztott fájl, azt dolgozzuk fel
                 if (fileInput.files.length > 0) {
                     const file = fileInput.files[0];
                     const reader = new FileReader();
@@ -111,9 +117,8 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
                         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                         const bookings = [];
                         
-                        const startRow = 1; // Az első sort (fejlécet) átugorjuk
-                        
-                        for (let i = startRow; i < jsonData.length; i++) {
+                        // Feltételezzük, hogy az 1. sor a fejléc, ezért a 2. sorból (index 1) indulunk
+                        for (let i = 1; i < jsonData.length; i++) {
                             const row = jsonData[i];
                             if (row && row.length >= 4) {
                                 bookings.push({
@@ -130,7 +135,9 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
                     };
                     reader.readAsArrayBuffer(file);
                 } else {
+                    // Ha nincs fájl, a megszokott szöveges listát olvassuk be
                     if(!textInput) return alert("Kérlek adj meg egy szöveges listát vagy tölts fel egy Excel fájlt!");
+                    
                     const lines = textInput.split('\n');
                     const bookings = [];
                     
@@ -152,6 +159,7 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
             });
         }
 
+        // Feldolgozás, QR generálás és Socket kiküldés
         function processAndSendBookings(track, bookings) {
             if (bookings.length === 0) return alert("Nem sikerült érvényes vendégadatokat beolvasni!");
             
@@ -165,12 +173,3 @@ DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
                 card.innerHTML = `
                     <div style="color:var(--drx-red); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${b.name}</div>
                     <div style="font-size:11px; color:#555;">${b.car}</div>
-                    <div class="qr-code-canvas" id="qr-${b.code}"></div>
-                    <div style="font-size:14px; letter-spacing:1px;">${b.code}</div>
-                `;
-                qrContainer.appendChild(card);
-
-                new QRCode(document.getElementById(`qr-${b.code}`), {
-                    text: `${currentUrl}?code=${b.code}`,
-                    width: 120,
-                    height: 120,
