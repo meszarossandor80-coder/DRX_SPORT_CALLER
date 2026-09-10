@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const fs = require('fs'); // Értékelések biztonságos fájlba mentéséhez
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,7 +11,7 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use(express.json());
 app.use(express.static(__dirname));
 
-const EVAL_FILE = path.join(__dirname, 'evaluations.json'); // Fájl az értékelések megőrzéséhez
+const EVAL_FILE = path.join(__dirname, 'evaluations.json');
 
 const drxFleet = [
     "BMW M4 Competition", "Chevrolet Camaro SS", "Dodge Challenger Hellcat 500LE", 
@@ -29,9 +29,8 @@ const drxFleet = [
 
 let dailyBookings = {}; 
 let currentTrack = "";
-let activeInstructors = {}; // Aktív oktatók tárolása (autó -> { név, szelfi })
+let activeInstructors = {}; 
 
-// Segédfüggvények az értékelések fájlból való betöltéséhez és mentéséhez
 function loadEvaluations() {
     try {
         if (fs.existsSync(EVAL_FILE)) {
@@ -52,12 +51,14 @@ function saveEvaluations(evals) {
     }
 }
 
-// Inicializáljuk az értékelések listáját a fájlból
 let evaluations = loadEvaluations();
 
-drxFleet.forEach(car => { dailyBookings[car] = []; });
+function resetFleet() {
+    drxFleet.forEach(car => { dailyBookings[car] = []; });
+}
+resetFleet();
 
-// 📍 BIZTONSÁGI FIX ÚTVONALAK: A főoldal és a /vendeg is a biztosan meglévő index.html-t tölti be!
+// PONTOS ÚTVONALAK: A főoldal (/) és a /vendeg is az index.html-t tölti be!
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html'))); 
 app.get('/vendeg', (req, res) => res.sendFile(path.join(__dirname, 'index.html'))); 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
@@ -65,20 +66,30 @@ app.get('/instructor', (req, res) => res.sendFile(path.join(__dirname, 'instruct
 
 io.on('connection', (socket) => {
     
-    // Amikor az Admin csatlakozik, elküldjük az aktuális értékelési statisztikákat
     socket.emit('update-eval-report', calculateInstructorStats());
 
     socket.on('admin-upload-list', ({ track, bookings }) => {
         currentTrack = track;
-        drxFleet.forEach(car => { dailyBookings[car] = []; });
+        resetFleet();
         
+        if (!bookings || bookings.length === 0) return;
+
         bookings.forEach(b => {
-            if (dailyBookings[b.car]) {
-                dailyBookings[b.car].push({
-                    code: b.code, name: b.name, time: b.time, car: b.car, laps: b.laps, extras: b.extras, status: "Várakozik", instructor: b.instructor || ""
-                });
-            }
+            const exactCarMatch = drxFleet.find(car => car.toLowerCase().trim() === String(b.car).toLowerCase().trim());
+            const targetCar = exactCarMatch || drxFleet[0]; // Ha nincs meg az autó, a listában az elsőre rakja mentőövként
+            
+            dailyBookings[targetCar].push({
+                code: String(b.code).trim().toUpperCase(),
+                name: String(b.name).trim(),
+                time: String(b.time).trim(),
+                car: targetCar,
+                laps: String(b.laps).trim(),
+                extras: String(b.extras || 'Nincs').trim(),
+                status: "Várakozik",
+                instructor: ""
+            });
         });
+        
         io.emit('track-day-opened', currentTrack);
     });
 
@@ -86,24 +97,18 @@ io.on('connection', (socket) => {
         const carName = data.carName || data;
         const instructorName = data.instructorName || "Oktató";
         const selfie = data.selfie || "";
-
         socket.join(carName);
-        
-        activeInstructors[carName] = {
-            name: instructorName,
-            selfie: selfie
-        };
-
+        activeInstructors[carName] = { name: instructorName, selfie: selfie };
         socket.emit('update-instructor-list', dailyBookings[carName] || []);
     });
 
     socket.on('guest-arrival', (bookingCode) => {
+        const searchCode = String(bookingCode).trim().toUpperCase();
         let found = null;
-        let foundCar = "";
 
         for (let car in dailyBookings) {
-            let b = dailyBookings[car].find(x => x.code === bookingCode);
-            if (b) { found = b; foundCar = car; break; }
+            let b = dailyBookings[car].find(x => String(x.code).toUpperCase() === searchCode);
+            if (b) { found = b; break; }
         }
 
         if (found) {
@@ -113,11 +118,12 @@ io.on('connection', (socket) => {
             }
             found.status = "Megérkezett (Váróban)";
             found.socketId = socket.id;
-            socket.join(foundCar);
-            io.to(foundCar).emit('update-instructor-list', dailyBookings[foundCar]);
+            
+            socket.join(found.car);
+            io.to(found.car).emit('update-instructor-list', dailyBookings[found.car]);
             socket.emit('guest-arrival-confirmed', found);
         } else {
-            socket.emit('error-message', 'A kód nem található a mai listában!');
+            socket.emit('error-message', `A(z) "${searchCode}" kód nem található a mai listában!`);
         }
     });
 
@@ -125,15 +131,9 @@ io.on('connection', (socket) => {
         let b = dailyBookings[car].find(x => x.code === code);
         if (b && b.socketId) {
             b.status = "Behívva (Csörög)";
-            
             const instructorData = activeInstructors[car] || { name: "Oktatód", selfie: "" };
             b.instructor = instructorData.name; 
-
-            io.to(b.socketId).emit('you-are-called', { 
-                instructor: instructorData.name,
-                selfie: instructorData.selfie 
-            });
-
+            io.to(b.socketId).emit('you-are-called', { instructor: instructorData.name, selfie: instructorData.selfie });
             io.to(car).emit('update-instructor-list', dailyBookings[car]);
         }
     });
@@ -153,11 +153,8 @@ io.on('connection', (socket) => {
         let b = dailyBookings[car].find(x => x.code === code);
         if (b) {
             b.status = "Teljesített ✅";
-            
             if (instructorName) b.instructor = instructorName;
-
             if (b.socketId && io.sockets.sockets.get(b.socketId)) {
-                // Biztosítjuk, hogy mindkét verziójú vendégoldali eseményt kiváltsa a biztonság kedvéért
                 io.sockets.sockets.get(b.socketId).emit('drive-finished', { instructor: b.instructor || "Oktatód" });
                 io.sockets.sockets.get(b.socketId).emit('drive-completed-screen', { instructor: b.instructor || "Oktatód" });
             }
@@ -173,7 +170,6 @@ io.on('connection', (socket) => {
             comment: data.comment,
             timestamp: data.timestamp || new Date()
         });
-
         saveEvaluations(evaluations);
         io.emit('update-eval-report', calculateInstructorStats());
     });
@@ -187,7 +183,6 @@ io.on('connection', (socket) => {
 
 function calculateInstructorStats() {
     const stats = {};
-
     evaluations.forEach(evalData => {
         if (!stats[evalData.instructor]) {
             stats[evalData.instructor] = { totalRating: 0, count: 0, comments: [] };
@@ -198,7 +193,6 @@ function calculateInstructorStats() {
             stats[evalData.instructor].comments.push(evalData.comment);
         }
     });
-
     const report = [];
     for (const name in stats) {
         report.push({
@@ -212,4 +206,4 @@ function calculateInstructorStats() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`DRX Szerver fut a ${PORT}-es porton`));
+server.listen(PORT, () => console.log(`DRX Szerver fut`));
