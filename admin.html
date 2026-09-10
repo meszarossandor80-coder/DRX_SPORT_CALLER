@@ -11,6 +11,16 @@
         select, textarea { background-color: var(--drx-card); color: #fff; margin-bottom: 15px; }
         textarea { font-family: monospace; height: 200px; resize: vertical; }
         button { background: linear-gradient(135deg, var(--drx-red), #b3002a); color: white; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        
+        /* Új stílusok az értékelési táblázathoz */
+        .report-section { background: var(--drx-card); padding: 20px; border-radius: 12px; margin-top: 40px; border: 1px solid #2d2d30; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .eval-table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: left; background: #111; }
+        .eval-table th, .eval-table td { padding: 12px; border: 1px solid #2d2d30; }
+        .eval-table th { background-color: #222; color: var(--drx-red); font-family: 'Impact', sans-serif; letter-spacing: 1px; }
+        .clear-btn { background: #333; color: #888; font-size: 12px; padding: 8px 15px; width: auto; display: inline-block; margin-top: 15px; border: 1px solid #444; text-transform: none; }
+        .clear-btn:hover { background: #ff003c; color: white; border-color: #ff003c; }
+        .comment-list { margin: 0; padding-left: 20px; color: #ccc; font-size: 0.95rem; }
+        .comment-list li { margin-bottom: 4px; font-style: italic; }
     </style>
 </head>
 <body>
@@ -25,10 +35,37 @@
         <option value="Szlovákia-Ring">Szlovákia-Ring (Diósförgepatony)</option>
     </select>
     <label>📋 Napi Lista beillesztése (Kód;Idő;Név;Autó;Körök;Extrák):</label>
-    <textarea id="list-input" placeholder="DRX001;10:15;Kovács János;Ferrari 488 GTB;5 kör;Videó&#10;DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
+    <textarea id="list-input" placeholder="DRX001;10:15;Kovács János;Ferrari 488 GTB;5 kör;Videó
+DRX002;10:30;Szabó Péter;Ford Mustang Roush;3 kör;Hűtőmágnes"></textarea>
     <button onclick="upload()">🔥 PÁLYANAP ÉLESÍTÉSE</button>
+
+    <!-- ÚJ: ELŐBEN FRISSÜLŐ OKTATÓI KIMUTATÁS -->
+    <div class="report-section">
+        <h3 style="font-family:'Impact'; margin-top:0; color: var(--drx-yellow); letter-spacing: 1px;">📊 INSTRUKTORI ÉRTÉKELÉSEK</h3>
+        <p style="color: #888; font-size: 0.9rem; margin: 0;">A vendégek által beküldött 1-10-es elégedettségi mutatók valós időben:</p>
+        
+        <table class="eval-table">
+            <thead>
+                <tr>
+                    <th>Oktató neve</th>
+                    <th>Átlag pontszám</th>
+                    <th>Értékelések száma</th>
+                    <th>Vendégek visszajelzései</th>
+                </tr>
+            </thead>
+            <tbody id="eval-table-body">
+                <tr>
+                    <td colspan="4" style="text-align: center; color: #666; padding: 20px;">Még nem érkezett értékelés a mai napon.</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <button class="clear-btn" onclick="clearEvaluations()">Statisztikák nullázása</button>
+    </div>
+
     <script>
         const socket = io();
+        
         function upload() {
             const track = document.getElementById('track').value;
             const text = document.getElementById('list-input').value.trim();
@@ -50,6 +87,49 @@
             });
             socket.emit('admin-upload-list', { track, bookings });
             alert("Sikeres feltöltés! " + bookings.length + " vendég szétosztva az autók között.");
+        }
+
+        // ÚJ: Értékelések táblázatának élő frissítése a szerverről
+        socket.on('update-eval-report', (reportData) => {
+            const tbody = document.getElementById('eval-table-body');
+            
+            if (!reportData || reportData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #666; padding: 20px;">Még nem érkezett értékelés.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = ''; // Előző tartalom törlése
+
+            reportData.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                // Kommentek listájának legenerálása
+                const commentsHtml = row.comments.map(c => `<li>"${c}"</li>`).join('');
+                
+                // Színkódolás az átlag alapján (Zöld ha jó, sárga ha közepes, piros ha alacsony)
+                let avgColor = 'var(--drx-yellow)';
+                if (Number(row.average) >= 8.5) avgColor = '#00c851';
+                if (Number(row.average) < 6.0) avgColor = 'var(--drx-red)';
+
+                tr.innerHTML = `
+                    <td style="font-weight: bold; font-size: 1.1rem;">${row.instructor}</td>
+                    <td style="font-weight: bold; color: ${avgColor}; font-size: 1.2rem;">${row.average} / 10</td>
+                    <td>${row.totalVotes} db szavazat</td>
+                    <td>
+                        <ul class="comment-list">
+                            ${commentsHtml || '<span style="color:#444; font-style:italic;">Nincs szöveges komment</span>'}
+                        </ul>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+
+        // ÚJ: Törlési parancs küldése a szervernek
+        function clearEvaluations() {
+            if (confirm("Biztosan törölni szeretnéd az ÖSSZES eddigi instruktori értékelést? Ez a művelet nem vonható vissza!")) {
+                socket.emit('clear-all-evaluations');
+            }
         }
     </script>
 </body>
