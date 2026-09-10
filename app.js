@@ -58,7 +58,6 @@ function resetFleet() {
 }
 resetFleet();
 
-// PONTOS ÚTVONALAK: A főoldal (/) és a /vendeg is az index.html-t tölti be!
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html'))); 
 app.get('/vendeg', (req, res) => res.sendFile(path.join(__dirname, 'index.html'))); 
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
@@ -76,7 +75,7 @@ io.on('connection', (socket) => {
 
         bookings.forEach(b => {
             const exactCarMatch = drxFleet.find(car => car.toLowerCase().trim() === String(b.car).toLowerCase().trim());
-            const targetCar = exactCarMatch || drxFleet[0]; // Ha nincs meg az autó, a listában az elsőre rakja mentőövként
+            const targetCar = exactCarMatch || drxFleet[0]; 
             
             dailyBookings[targetCar].push({
                 code: String(b.code).trim().toUpperCase(),
@@ -206,4 +205,4 @@ function calculateInstructorStats() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`DRX Szerver fut`));
+server.listen(PORT, () => console.log(`DRX Szerver sikeresen fut a ${PORT}-es porton.`));
