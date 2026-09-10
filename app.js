@@ -27,6 +27,7 @@ const drxFleet = [
     "VIP ALLIN FORMULA VEZETÉS", "Trükkös Suzuki"
 ];
 
+let allBookingsMap = new Map();
 let dailyBookings = {}; 
 let currentTrack = "";
 let activeInstructors = {}; 
@@ -54,7 +55,9 @@ function saveEvaluations(evals) {
 let evaluations = loadEvaluations();
 
 function resetFleet() {
+    allBookingsMap.clear();
     drxFleet.forEach(car => { dailyBookings[car] = []; });
+    dailyBookings["EGYÉB"] = [];
 }
 resetFleet();
 
@@ -69,24 +72,38 @@ io.on('connection', (socket) => {
 
     socket.on('admin-upload-list', ({ track, bookings }) => {
         currentTrack = track;
-        resetFleet();
+        resetFleet(); 
         
         if (!bookings || bookings.length === 0) return;
 
         bookings.forEach(b => {
-            const exactCarMatch = drxFleet.find(car => car.toLowerCase().trim() === String(b.car).toLowerCase().trim());
-            const targetCar = exactCarMatch || drxFleet[0]; 
-            
-            dailyBookings[targetCar].push({
-                code: String(b.code).trim().toUpperCase(),
-                name: String(b.name).trim(),
-                time: String(b.time).trim(),
-                car: targetCar,
-                laps: String(b.laps).trim(),
+            if (!b.code || !b.car) return;
+
+            const guestCode = String(b.code).trim().toUpperCase();
+            const carNameInput = String(b.car).trim();
+
+            const guestObj = {
+                code: guestCode,
+                name: String(b.name || 'Vendég').trim(),
+                time: String(b.time || '--:--').trim(),
+                car: carNameInput,
+                laps: String(b.laps || '1 kör').trim(),
                 extras: String(b.extras || 'Nincs').trim(),
                 status: "Várakozik",
-                instructor: ""
-            });
+                instructor: "",
+                socketId: null
+            };
+
+            allBookingsMap.set(guestCode, guestObj);
+
+            const exactCarMatch = drxFleet.find(car => car.toLowerCase().replace(/\s+/g, '') === carNameInput.toLowerCase().replace(/\s+/g, ''));
+            
+            if (exactCarMatch) {
+                guestObj.car = exactCarMatch;
+                dailyBookings[exactCarMatch].push(guestObj);
+            } else {
+                dailyBookings["EGYÉB"].push(guestObj);
+            }
         });
         
         io.emit('track-day-opened', currentTrack);
@@ -103,12 +120,7 @@ io.on('connection', (socket) => {
 
     socket.on('guest-arrival', (bookingCode) => {
         const searchCode = String(bookingCode).trim().toUpperCase();
-        let found = null;
-
-        for (let car in dailyBookings) {
-            let b = dailyBookings[car].find(x => String(x.code).toUpperCase() === searchCode);
-            if (b) { found = b; break; }
-        }
+        const found = allBookingsMap.get(searchCode);
 
         if (found) {
             if (found.status === "Teljesített ✅") {
@@ -119,37 +131,37 @@ io.on('connection', (socket) => {
             found.socketId = socket.id;
             
             socket.join(found.car);
-            io.to(found.car).emit('update-instructor-list', dailyBookings[found.car]);
+            io.to(found.car).emit('update-instructor-list', dailyBookings[found.car] || []);
             socket.emit('guest-arrival-confirmed', found);
         } else {
-            socket.emit('error-message', `A(z) "${searchCode}" kód nem található a mai listában!`);
+            socket.emit('error-message', `A(z) "${searchCode}" kód nem található a mai listában! Töltsd fel újra a listát az admin felületen.`);
         }
     });
 
     socket.on('call-guest', ({ car, code }) => {
-        let b = dailyBookings[car].find(x => x.code === code);
+        const searchCode = String(code).trim().toUpperCase();
+        let b = allBookingsMap.get(searchCode);
         if (b && b.socketId) {
             b.status = "Behívva (Csörög)";
             const instructorData = activeInstructors[car] || { name: "Oktatód", selfie: "" };
             b.instructor = instructorData.name; 
             io.to(b.socketId).emit('you-are-called', { instructor: instructorData.name, selfie: instructorData.selfie });
-            io.to(car).emit('update-instructor-list', dailyBookings[car]);
+            io.to(car).emit('update-instructor-list', dailyBookings[car] || []);
         }
     });
 
     socket.on('guest-acknowledged', (bookingCode) => {
-        for (let car in dailyBookings) {
-            let b = dailyBookings[car].find(x => x.code === bookingCode);
-            if (b) {
-                b.status = "Úton van! 🏁";
-                io.to(car).emit('update-instructor-list', dailyBookings[car]);
-                break;
-            }
+        const searchCode = String(bookingCode).trim().toUpperCase();
+        let b = allBookingsMap.get(searchCode);
+        if (b) {
+            b.status = "Úton van! 🏁";
+            io.to(b.car).emit('update-instructor-list', dailyBookings[b.car] || []);
         }
     });
 
     socket.on('complete-drive', ({ car, code, instructorName }) => {
-        let b = dailyBookings[car].find(x => x.code === code);
+        const searchCode = String(code).trim().toUpperCase();
+        let b = allBookingsMap.get(searchCode);
         if (b) {
             b.status = "Teljesített ✅";
             if (instructorName) b.instructor = instructorName;
@@ -157,7 +169,7 @@ io.on('connection', (socket) => {
                 io.sockets.sockets.get(b.socketId).emit('drive-finished', { instructor: b.instructor || "Oktatód" });
                 io.sockets.sockets.get(b.socketId).emit('drive-completed-screen', { instructor: b.instructor || "Oktatód" });
             }
-            io.to(car).emit('update-instructor-list', dailyBookings[car]);
+            io.to(car).emit('update-instructor-list', dailyBookings[car] || []);
         }
     });
 
@@ -205,4 +217,4 @@ function calculateInstructorStats() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`DRX Szerver sikeresen fut a ${PORT}-es porton.`));
+server.listen(PORT, () => console.log(`DRX Szerver fut`));
