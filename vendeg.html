@@ -18,6 +18,7 @@
         .btn-confirm { background: linear-gradient(135deg, #00c851, #007e33); font-size: 1.4rem; padding: 20px; margin-top: 30px; }
         @keyframes pulse { 0% { box-shadow: 0 0 10px var(--drx-yellow); } 100% { box-shadow: 0 0 30px var(--drx-red); border-color: var(--drx-red); } }
         
+        /* Értékelő gombok stílusa */
         .rating-btn { width: 42px; height: 42px; border: 2px solid #444; background: #2c2c2e; color: white; border-radius: 50%; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
         .rating-btn:hover { border-color: var(--drx-red); }
     </style>
@@ -49,6 +50,7 @@
         <div class="alarm-box" style="text-align: center;">
             <h1 style="color: var(--drx-red); margin:0; font-size:2.5rem; font-family:'Impact';">🚨 TE KÖVETKEZEL! 🚨</h1>
             
+            <!-- Oktató fényképe a behívó ablakban -->
             <div id="instructor-photo-container" style="display:none; margin: 20px 0;">
                 <img id="called-instructor-selfie" src="" style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%; border: 4px solid var(--drx-yellow); box-shadow: 0 0 15px rgba(255,204,0,0.6);">
                 <p style="font-size: 1.1rem; margin: 5px 0 0 0; color: var(--drx-yellow);">Keresd őt: <b id="called-instructor-name">-</b></p>
@@ -79,6 +81,7 @@
         let selectedRating = null;
         let myInstructor = ""; 
 
+        // AUTOMATIKUS QR-KÓD BEOLVASÁS
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const codeFromUrl = urlParams.get('code');
@@ -107,6 +110,7 @@
         socket.on('you-are-called', (data) => {
             if(data && data.instructor) myInstructor = data.instructor;
             
+            // Szelfi fotó megjelenítése a riasztásnál
             if (data && data.selfie) {
                 document.getElementById('called-instructor-selfie').src = data.selfie;
                 document.getElementById('called-instructor-name').innerText = data.instructor;
@@ -132,6 +136,7 @@
             alert("Az instruktorod már vár rád a kapunál!");
         }
 
+        // Amikor a menet lezárul, felugrik az értékelő felület
         socket.on('drive-finished', (data) => {
             if(data && data.instructor) myInstructor = data.instructor;
             
@@ -158,8 +163,3 @@
             document.getElementById('step-evaluation').style.display = 'block';
         });
 
-        function sendEvaluation() {
-            const comment = document.getElementById('eval-comment').value;
-            socket.emit('submit-evaluation', {
-                bookingCode: myCode,
-                instructor: myInstructor || "Ismeretlen oktató",
