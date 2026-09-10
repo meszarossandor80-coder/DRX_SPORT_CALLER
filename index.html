@@ -26,6 +26,7 @@
     <div class="logo">DRX <span>SPORT</span></div>
     <div class="sub">Helyszíni Bejelentkezés</div>
     
+    <!-- BEJELENTKEZÉS PANEL -->
     <div id="step-login" class="box">
         <h3 style="margin-top:0;">Üdvözlünk a pályán!</h3>
         <p style="color:#aaa; font-size:0.95rem;">A kezdéshez add meg a foglalási vagy kuponkódodat:</p>
@@ -33,6 +34,7 @@
         <button onclick="checkInGuest()">Becsekkolás 🏁</button>
     </div>
     
+    <!-- VÁRAKOZÓ / UTAS PANEL -->
     <div id="step-waiting" class="box" style="display:none;">
         <h2 id="waiting-title" style="color: var(--drx-yellow);">Sikeres Regisztráció!</h2>
         <p>Autód: <b id="display-car" style="color:var(--drx-red); font-size:1.3rem;">-</b></p>
@@ -42,23 +44,30 @@
         </div>
     </div>
     
+    <!-- RIASZTÁS / BEHÍVÓ PANEL -->
     <div id="step-alarm" class="alarm-screen">
         <div class="alarm-box" style="text-align: center;">
             <h1 style="color: var(--drx-red); margin:0; font-size:2.5rem; font-family:'Impact';">🚨 TE KÖVETKEZEL! 🚨</h1>
+            
             <div id="instructor-photo-container" style="display:none; margin: 20px 0;">
                 <img id="called-instructor-selfie" src="" style="width: 150px; height: 150px; object-fit: cover; border-radius: 50%; border: 4px solid var(--drx-yellow); box-shadow: 0 0 15px rgba(255,204,0,0.6);">
                 <p style="font-size: 1.1rem; margin: 5px 0 0 0; color: var(--drx-yellow);">Keresd őt: <b id="called-instructor-name">-</b></p>
             </div>
+
             <p style="font-size:1.2rem; margin:15px 0;">Kérjük, azonnal fáradj a beszálló kapuhoz!</p>
             <button class="btn-confirm" onclick="confirmGoing()">INDULOK A KAPUHOZ! 🏁</button>
         </div>
     </div>
 
+    <!-- ELÉGEDETTSÉGI ÉRTÉKELŐ PANEL -->
     <div id="step-evaluation" class="box" style="display:none; border: 2px solid var(--drx-red);">
         <h2 style="color: var(--drx-red); margin-top:0;">Hogy érezted magad? 🏎️</h2>
         <p>Kérjük, értékeld az oktatód (<b id="eval-instructor-name" style="color:var(--drx-yellow);">-</b>) munkáját egy 1-10-ig terjedő skálán!</p>
+        
         <div class="rating-scale" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 25px 0;"></div>
+
         <textarea id="eval-comment" placeholder="Írj pár szót az élményről (opcionális)..." style="width: 100%; height: 80px; border-radius: 8px; padding: 10px; border: 1px solid #444; background: #2c2c2e; color: white; box-sizing: border-box; resize: none; font-size: 1rem;"></textarea>
+        
         <button id="submit-eval-btn" onclick="sendEvaluation()" style="margin-top: 20px; background: linear-gradient(135deg, #00c851, #007e33);" disabled>Értékelés elküldése 🏁</button>
     </div>
 
@@ -70,9 +79,10 @@
         let selectedRating = null;
         let myInstructor = ""; 
 
+        // ⚡ FIX: EZT A RÉSZT HIÁNYOLTA A BÖNGÉSZŐ
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const codeFromUrl = urlParams.get('code') || urlParams.get('vendeg');
+            const codeFromUrl = urlParams.get('code');
             if (codeFromUrl) {
                 document.getElementById('booking-code').value = codeFromUrl.toUpperCase().trim();
                 setTimeout(() => { checkInGuest(); }, 500);
@@ -92,7 +102,7 @@
             document.getElementById('display-time').innerText = data.time;
             document.getElementById('display-laps').innerText = data.laps;
             if(data.instructor) myInstructor = data.instructor; 
-            alert("Sikeresen bejelentkeztél!");
+            alert("Sikeresen bejelentkeztél! Kérjük engedélyezd a hangot, ha a böngésző kéri.");
         });
 
         socket.on('you-are-called', (data) => {
@@ -106,14 +116,17 @@
             }
             document.getElementById('step-alarm').style.display = 'flex';
             document.getElementById('alarm-sound').play().catch(e => console.log(e));
+            if (navigator.vibrate) navigator.vibrate();
         });
 
         function confirmGoing() {
             document.getElementById('alarm-sound').pause();
             document.getElementById('step-alarm').style.display = 'none';
             document.getElementById('waiting-title').innerText = "Vezetés folyamatban... 🏎️";
-            document.getElementById('waiting-info-box').innerText = "Élvezd a száguldást!";
+            document.getElementById('waiting-title').style.color = "#00c851";
+            document.getElementById('waiting-info-box').innerText = "Élvezd a száguldást! Miután visszaérkeztél a boxutcába, itt tudod majd értékelni az oktatódat.";
             socket.emit('guest-acknowledged', myCode);
+            alert("Az instruktorod már vár rád a kapunál!");
         }
 
         socket.on('drive-finished', (data) => {
@@ -124,6 +137,7 @@
             const scaleContainer = document.querySelector('.rating-scale');
             scaleContainer.innerHTML = '';
             selectedRating = null;
+            document.getElementById('submit-eval-btn').disabled = true;
 
             for (let i = 1; i <= 10; i++) {
                 const btn = document.createElement('button');
@@ -142,20 +156,8 @@
 
         socket.on('drive-completed-screen', (data) => {
             if(data && data.instructor) myInstructor = data.instructor;
-            // Kényszerített aktiválás
-            const customEvent = { instructor: myInstructor };
-            socket.listeners('drive-finished')[0](customEvent);
+            socket.emit('drive-finished', data);
         });
 
         function sendEvaluation() {
             const comment = document.getElementById('eval-comment').value;
-            socket.emit('submit-evaluation', {
-                bookingCode: myCode,
-                instructor: myInstructor || "Ismeretlen oktató",
-                rating: selectedRating,
-                comment: comment,
-                timestamp: new Date()
-            });
-            document.getElementById('step-evaluation').innerHTML = `<h2 style="color: #00c851;">Köszönjük a visszajelzést! 🏁</h2>`;
-        }
-        socket.on('error-message', (msg) => alert(msg));
