@@ -55,13 +55,13 @@
         <div id="phase-called" class="card" style="display: none; border: 3px solid #007bff;">
             <div class="status-badge status-blue" style="width: 100%; padding: 10px; margin-bottom: 20px; font-size: 16px;">Állapot: BEHÍVVA</div>
             <h2 style="text-align: center; color: #007bff; animation: pulse 1s infinite; font-size: 26px;">📢 FÁRADJ AZ AUTÓHOZ!</h2>
-            <p style="text-align: center; margin: 20px 0; font-size: 18px;">Megkezdheted a vezetést a következő autóval:</p>
+            <p style="text-align: center; margin: 20px 0; font-size: 18px;">Megkezdheted a vezetést a következő autocomplete autóval:</p>
             <div style="background: #333; padding: 15px; border-radius: 6px; text-align: center; font-size: 20px; font-weight: bold; color: #ffcc00;" id="called-car">
                 -
             </div>
         </div>
 
-        <!-- 5. FÁZIS: ÉRTÉKELÉS (MENET LEZÁRÁSA UTÁN) -->
+        <!-- 5. FÁZIS: ÉRTÉKELÉS -->
         <div id="phase-rating" class="card" style="display: none;">
             <h2>Köszönjük a vezetést! 🎉</h2>
             <p style="color: #aaa; margin-bottom: 15px;">Kérjük, értékeld az instruktorodat 1-től 10-ig, mennyire voltál vele elégedett!</p>
@@ -87,7 +87,7 @@
         </div>
     </div>
 
-    <!-- HANGJELZÉS (Beépített sziréna hang) -->
+    <!-- HANGJELZÉS -->
     <script>
         function playSiren() {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -105,55 +105,69 @@
         }
     </script>
 
-    <!-- Socket.io és Kliens JS logikák -->
+    <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         let myId = null;
-        let myData = null;
         let selectedRating = null;
 
+        // Bejelentkezés űrlap kezelése
         document.getElementById('guestLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const inputId = document.getElementById('guestId').value.trim().toUpperCase();
             myId = inputId;
+            
+            // Kérjük a szervert, hogy küldje el a friss listát
             socket.emit('vendegekFrissitese');
+            listenToMyEvents();
         });
 
+        // Gomb: Bejelentkezés vezetésre
         document.getElementById('btn-checkin').addEventListener('click', () => {
-            if (myId) socket.emit('vendegBejelentkezesVezetesre', myId);
+            if (myId) {
+                socket.emit('vendegBejelentkezesVezetesre', myId);
+            }
         });
 
+        // Értékelő gombok
         window.setRating = function(num) {
             selectedRating = num;
             document.querySelectorAll('.rating-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
         };
 
+        // Értékelés beküldése
         document.getElementById('btn-submit-rating').addEventListener('click', () => {
-            if(!selectedRating) { alert("Kérjük, válassz egy pontszámot 1 és 10 között!"); return; }
+            if(!selectedRating) { alert("Kérjük, válassz egy pontszámot!"); return; }
             socket.emit('ertekelesBekuldese', {
                 vendegId: myId,
                 pontszam: selectedRating,
                 eszrevetel: document.getElementById('feedback').value
             });
-            alert("Köszönjük az értékelést! Jó utat kívánunk!");
+            alert("Köszönjük az értékelést!");
             location.reload();
         });
 
+        // Valós idejű állapotváltások figyelése
         socket.on('vendegekFrissitese', (vendegek) => {
             if (!myId) return;
 
             const me = vendegek.find(v => v.id === myId);
-            if (!me) { alert("Ez az azonosító nem található az irodai rendszerben!"); myId = null; return; }
-            myData = me;
+            if (!me) { 
+                alert("Ez az azonosító nem található az irodai rendszerben!"); 
+                myId = null; 
+                return; 
+            }
 
+            // Összes panel elrejtése
             document.getElementById('phase-login').style.display = 'none';
             document.getElementById('phase-arrived').style.display = 'none';
             document.getElementById('phase-waiting').style.display = 'none';
             document.getElementById('phase-called').style.display = 'none';
             document.getElementById('phase-rating').style.display = 'none';
 
+            // Megfelelő fázis megjelenítése
             if (me.status === 'MEGÉRKEZETT') {
                 document.getElementById('phase-arrived').style.display = 'block';
                 document.getElementById('arrived-welcome').innerHTML = `Szia, ${me.nev}!`;
@@ -162,21 +176,12 @@
             } 
             else if (me.status === 'VEZETÉSRE_VÁR') {
                 document.getElementById('phase-waiting').style.display = 'block';
+                
+                // Sorrend számolása
                 const azonosAutosok = vendegek.filter(v => v.auto === me.auto && v.status === 'VEZETÉSRE_VÁR');
                 azonosAutosok.sort((a, b) => a.idopont.localeCompare(b.idopont));
                 const index = azonosAutosok.findIndex(v => v.id === myId);
-                document.getElementById('queue-number').innerHTML = index;
+                
+                document.getElementById('queue-number').innerHTML = index; // 0 = te vagy a következő
             } 
             else if (me.status === 'BEHÍVVA') {
-                document.getElementById('phase-called').style.display = 'block';
-                document.getElementById('called-car').innerHTML = me.auto;
-            }
-            else if (me.status === 'TELJESÍTETT' && me.ertekeles === null) {
-                document.getElementById('phase-rating').style.display = 'block';
-            }
-        });
-
-        socket.on('connect', () => {
-            if(myId) listenToMyEvents();
-        });
-
