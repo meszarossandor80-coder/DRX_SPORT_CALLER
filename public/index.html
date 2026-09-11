@@ -87,7 +87,7 @@
         </div>
     </div>
 
-    <!-- HANGJELZÉS (Beépített oszcillátor sziréna hangnak, nem kell külső fájl!) -->
+    <!-- HANGJELZÉS (Beépített sziréna hang) -->
     <script>
         function playSiren() {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -105,7 +105,7 @@
         }
     </script>
 
-    <!-- Socket.io és Kliens JS -->
+    <!-- Socket.io és Kliens JS logikák -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -113,28 +113,23 @@
         let myData = null;
         let selectedRating = null;
 
-        // Bejelentkezés gomb kezelése
         document.getElementById('guestLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const inputId = document.getElementById('guestId').value.trim().toUpperCase();
             myId = inputId;
-            // Kérjük a szervertől az aktuális listát az ellenőrzéshez
             socket.emit('vendegekFrissitese');
         });
 
-        // "Bejelentkezés vezetésre" (Zöld fázis indítása)
         document.getElementById('btn-checkin').addEventListener('click', () => {
             if (myId) socket.emit('vendegBejelentkezesVezetesre', myId);
         });
 
-        // Értékelés gombok kezelése
         window.setRating = function(num) {
             selectedRating = num;
             document.querySelectorAll('.rating-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
         };
 
-        // Értékelés beküldése
         document.getElementById('btn-submit-rating').addEventListener('click', () => {
             if(!selectedRating) { alert("Kérjük, válassz egy pontszámot 1 és 10 között!"); return; }
             socket.emit('ertekelesBekuldese', {
@@ -143,10 +138,9 @@
                 eszrevetel: document.getElementById('feedback').value
             });
             alert("Köszönjük az értékelést! Jó utat kívánunk!");
-            location.reload(); // Visszaugrik a legelejére tiszta lappal
+            location.reload();
         });
 
-        // Állapotok és sorrend élő kezelése
         socket.on('vendegekFrissitese', (vendegek) => {
             if (!myId) return;
 
@@ -154,14 +148,12 @@
             if (!me) { alert("Ez az azonosító nem található az irodai rendszerben!"); myId = null; return; }
             myData = me;
 
-            // Rejtünk minden fázist
             document.getElementById('phase-login').style.display = 'none';
             document.getElementById('phase-arrived').style.display = 'none';
             document.getElementById('phase-waiting').style.display = 'none';
             document.getElementById('phase-called').style.display = 'none';
             document.getElementById('phase-rating').style.display = 'none';
 
-            // Fázisok kezelése státusz alapján
             if (me.status === 'MEGÉRKEZETT') {
                 document.getElementById('phase-arrived').style.display = 'block';
                 document.getElementById('arrived-welcome').innerHTML = `Szia, ${me.nev}!`;
@@ -170,9 +162,21 @@
             } 
             else if (me.status === 'VEZETÉSRE_VÁR') {
                 document.getElementById('phase-waiting').style.display = 'block';
-                
-                // Kiszámoljuk, hányan vannak előtte UGYANERRE az autóra várva időrendben
                 const azonosAutosok = vendegek.filter(v => v.auto === me.auto && v.status === 'VEZETÉSRE_VÁR');
                 azonosAutosok.sort((a, b) => a.idopont.localeCompare(b.idopont));
                 const index = azonosAutosok.findIndex(v => v.id === myId);
-                
+                document.getElementById('queue-number').innerHTML = index;
+            } 
+            else if (me.status === 'BEHÍVVA') {
+                document.getElementById('phase-called').style.display = 'block';
+                document.getElementById('called-car').innerHTML = me.auto;
+            }
+            else if (me.status === 'TELJESÍTETT' && me.ertekeles === null) {
+                document.getElementById('phase-rating').style.display = 'block';
+            }
+        });
+
+        socket.on('connect', () => {
+            if(myId) listenToMyEvents();
+        });
+
