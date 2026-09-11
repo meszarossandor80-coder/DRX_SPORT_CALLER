@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRX SPORT - Instruktori Panel</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏎️ DRX SPORT - Instruktori Panel</h1>
+
+        <!-- 1. BEJELENTKEZÉSI PANEL -->
+        <div id="loginCard" class="card">
+            <h2>Napi munkakezdés / Autó választás</h2>
+            <form id="instruktorLoginForm">
+                <div class="form-group">
+                    <label for="instruktorNev">Ki vagy?</label>
+                    <select id="instruktorNev" required>
+                        <!-- A szerver tölti fel (Bandi, Csabi Huba, Geri, Sanya) -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="instruktorAuto">Melyik autót viszed ma?</label>
+                    <select id="instruktorAuto" required>
+                        <!-- A szerver tölti fel a 13 autóból -->
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Bejelentkezés és pult indítása</button>
+            </form>
+        </div>
+
+        <!-- 2. AKTÍV VEZETÉSI PANEL (ALAPÉRTELMEZÉSBEN REJTETT) -->
+        <div id="mainPanel" class="card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="panelCim" style="border: none; margin: 0;">Aktív Autó: -</h2>
+                <span id="instruktorBadge" class="status-badge status-blue" style="font-size: 16px;">-</span>
+            </div>
+
+            <h3>Vezetésre váró sor (Időrendben)</h3>
+            <div class="table-responsive" style="margin-top: 15px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Időpont</th>
+                            <th>Vendég Neve</th>
+                            <th>Körszám</th>
+                            <th>Extrák</th>
+                            <th>Állapot</th>
+                            <th>Műveletek</th>
+                        </tr>
+                    </thead>
+                    <tbody id="instruktorVendegLista">
+                        <!-- Ide jönnek dinamikusan az autóhoz tartozó vendégek -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.io és Kliens JS -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let valasztottInstruktor = null;
+        let valasztottAuto = null;
+
+        // 1. Legördülők feltöltése a szerverről kapott fix adatokkal
+        fetch('/api/instruktorok')
+            .then(res => res.json())
+            .then(nevek => {
+                const select = document.getElementById('instruktorNev');
+                nevek.forEach(nev => {
+                    let opt = document.createElement('option');
+                    opt.value = nev;
+                    opt.innerHTML = nev;
+                    select.appendChild(opt);
+                });
+            });
+
+        fetch('/api/autok')
+            .then(res => res.json())
+            .then(autok => {
+                const select = document.getElementById('instruktorAuto');
+                autok.forEach(auto => {
+                    let opt = document.createElement('option');
+                    opt.value = auto;
+                    opt.innerHTML = auto;
+                    select.appendChild(opt);
+                });
+            });
+
+        // 2. Bejelentkezés kezelése
+        document.getElementById('instruktorLoginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            valasztottInstruktor = document.getElementById('instruktorNev').value;
+            valasztottAuto = document.getElementById('instruktorAuto').value;
+
+            // Küldjük a szervernek az infót
+            socket.emit('instruktorBejelentkezes', { nev: valasztottInstruktor, auto: valasztottAuto });
+
+            // Felületek cseréje
+            document.getElementById('loginCard').style.display = 'none';
+            document.getElementById('mainPanel').style.display = 'block';
+            document.getElementById('panelCim').innerHTML = `🏎️ Autó: <strong>${valasztottAuto}</strong>`;
+            document.getElementById('instruktorBadge').innerHTML = `Pilóta: ${valasztottInstruktor}`;
+        });
+
+        // 3. Élő lista frissítése és szűrése
+        socket.on('vendegekFrissitese', (vendegek) => {
+            if (!valasztottAuto) return; // Ha még nincs bejelentkezve, nem csinál semmit
+
+            const tbody = document.getElementById('instruktorVendegLista');
+            tbody.innerHTML = '';
+
+            // CSAK azokat a vendégeket szűrjük le, akik ehhez az autóhoz jöttek és nincsenek még kész porig
+            const aktualisVendegek = vendegek.filter(v => v.auto === valasztottAuto && v.status !== 'TELJESÍTETT');
+
+            if (aktualisVendegek.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888;">Nincs regisztrált vendég ehhez az autóhoz jelenleg.</td></tr>`;
+                return;
+            }
+
+            // Sorba rendezzük őket tervezett időpont szerint
+            aktualisVendegek.sort((a, b) => a.idopont.localeCompare(b.idopont));
+
+            aktualisVendegek.forEach(v => {
+                const tr = document.createElement('tr');
+
+                let statusClass = '';
+                let statusText = v.status;
+                let gombokHtml = '';
+
+                // Gombok logikája a státusztól függően
+                if (v.status === 'MEGÉRKEZETT') {
+                    statusClass = 'status-yellow';
+                    statusText = 'Irodánál kész';
+                    gombokHtml = `<span style="color: #666; font-size: 14px;">Mobil csekkolásra vár</span>`;
+                } else if (v.status === 'VEZETÉSRE_VÁR') {
+                    statusClass = 'status-green';
+                    statusText = 'Vezetésre vár';
+                    gombokHtml = `<button class="btn-submit" style="padding: 6px 12px; font-size: 14px;" onclick="vendegHivasa('${v.id}')">📢 VENDÉG HÍVÁSA</button>`;
+                } else if (v.status === 'BEHÍVVA') {
+                    statusClass = 'status-blue';
+                    statusText = 'Behívva';
+                    gombokHtml = `<button class="btn-submit" style="background-color: #dc3545; color: white; padding: 6px 12px; font-size: 14px;" onclick="menetLezarasa('${v.id}')">🏁 MENET LEZÁRÁSA</button>`;
+                }
+
+                tr.innerHTML = `
+                    <td><strong>${v.idopont}</strong></td>
+                    <td>${v.nev} <br><small style="color: #ffcc00;">ID: ${v.id}</small></td>
+                    <td>${v.korszam} kör</td>
+                    <td>${v.extra.join(', ') || 'Nincs'}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td>${gombokHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+
+        // Globális gomb funkciók a táblázatból
+        window.vendegHivasa = function(id) {
+            socket.emit('vendegHivasa', id);
+        };
+
+        window.menetLezarasa = function(id) {
+            if(confirm("Biztosan lezárod a menetet? A vendégnél ekkor felugrik az értékelő panel.")) {
+                socket.emit('menetLezarasa', id);
+            }
+        };
+    </script>
+</body>
+</html>
