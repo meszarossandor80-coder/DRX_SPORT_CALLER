@@ -1,0 +1,183 @@
+/* --- GLOBÁLIS STÍLUSOK --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #1a1a1a;
+    color: #f5f5f5;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #ffcc00;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+h2 {
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ffcc00;
+    padding-bottom: 5px;
+    color: #fff;
+}
+
+/* --- KÁRTYA ELRENDEZÉS --- */
+.card {
+    background-color: #262626;
+    border-radius: 8px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+/* --- ŰRLAPOK (FORMS) --- */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #ccc;
+}
+
+input[type="text"], input[type="time"], select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #444;
+    background-color: #333;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #ffcc00;
+}
+
+.checkbox-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    background-color: #333;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.checkbox-group input {
+    width: 18px;
+    height: 18px;
+    accent-color: #ffcc00;
+}
+
+.btn-submit {
+    background-color: #ffcc00;
+    color: #000;
+    border: none;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s;
+    text-transform: uppercase;
+}
+
+.btn-submit:hover {
+    background-color: #e6b800;
+}
+
+/* --- TÁBLÁZAT STÍLUSOK (ADMIN) --- */
+.table-responsive {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    text-align: left;
+}
+
+th, td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #444;
+}
+
+th {
+    background-color: #333;
+    color: #ffcc00;
+}
+
+tr:hover {
+    background-color: #2d2d2d;
+}
+
+/* --- VALÓS IDEJŰ ÁLLAPOT SZÍNEK (ZSENIÁLIS LOGIKA) --- */
+.status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* Sárga: Megérkezett */
+.status-yellow {
+    background-color: #ffcc00;
+    color: #000;
+}
+
+/* Zöld: Vezetésre vár */
+.status-green {
+    background-color: #28a745;
+    color: #fff;
+}
+
+/* Kék: Behívva (Villogó effekt a figyelemfelkeltéshez) */
+.status-blue {
+    background-color: #007bff;
+    color: #fff;
+    animation: pulse 1.5s infinite;
+}
+
+/* Szürke: Teljesített */
+.status-gray {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.eszrevetel-szoveg {
+    color: #aaa;
+    font-size: 14px;
+}
