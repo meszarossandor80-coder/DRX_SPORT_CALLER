@@ -105,5 +105,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`A DRX Rendszer fut a 3000-es porton.`);
+    console.log(`A DRX Rendszer sikeresen elindult.`);
 });
