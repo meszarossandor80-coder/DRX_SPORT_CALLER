@@ -4,7 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DRX SPORT - Instruktori Panel</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 { color: #e10600; text-align: center; margin-bottom: 30px; }
+        .card {
+            background-color: #1e1e1e;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+        }
+        h2 { color: #fff; border-bottom: 2px solid #e10600; padding-bottom: 10px; margin-top: 0; }
+        h3 { color: #ccc; margin-top: 20px; }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #ccc;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+            color: white;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .btn-submit {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.2s;
+        }
+        .btn-submit:hover { background-color: #0056b3; }
+        
+        .table-responsive { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: #1a1a1a;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th { background-color: #252525; color: #aaa; }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .status-yellow { background-color: #ffcc00; color: #000; }
+        .status-green { background-color: #28a745; color: #fff; }
+        .status-blue { background-color: #007bff; color: #fff; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -16,21 +96,17 @@
             <form id="instruktorLoginForm">
                 <div class="form-group">
                     <label for="instruktorNev">Ki vagy?</label>
-                    <select id="instruktorNev" required>
-                        <!-- A szerver tölti fel (Bandi, Csabi Huba, Geri, Sanya) -->
-                    </select>
+                    <select id="instruktorNev" required></select>
                 </div>
                 <div class="form-group">
                     <label for="instruktorAuto">Melyik autót viszed ma?</label>
-                    <select id="instruktorAuto" required>
-                        <!-- A szerver tölti fel a 13 autóból -->
-                    </select>
+                    <select id="instruktorAuto" required></select>
                 </div>
                 <button type="submit" class="btn-submit">Bejelentkezés és pult indítása</button>
             </form>
         </div>
 
-        <!-- 2. AKTÍV VEZETÉSI PANEL (ALAPÉRTELMEZÉSBEN REJTETT) -->
+        <!-- 2. AKTÍV VEZETÉSI PANEL -->
         <div id="mainPanel" class="card" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 id="panelCim" style="border: none; margin: 0;">Aktív Autó: -</h2>
@@ -38,7 +114,7 @@
             </div>
 
             <h3>Vezetésre váró sor (Időrendben)</h3>
-            <div class="table-responsive" style="margin-top: 15px;">
+            <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
@@ -50,22 +126,18 @@
                             <th>Műveletek</th>
                         </tr>
                     </thead>
-                    <tbody id="instruktorVendegLista">
-                        <!-- Ide jönnek dinamikusan az autóhoz tartozó vendégek -->
-                    </tbody>
+                    <tbody id="instruktorVendegLista"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Socket.io és Kliens JS -->
-    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         let valasztottInstruktor = null;
         let valasztottAuto = null;
 
-        // 1. Legördülők feltöltése a szerverről kapott fix adatokkal
+        // Adatok betöltése az API-kból
         fetch('/api/instruktorok')
             .then(res => res.json())
             .then(nevek => {
@@ -90,38 +162,35 @@
                 });
             });
 
-        // 2. Bejelentkezés kezelése
+        // Bejelentkezés kezelése
         document.getElementById('instruktorLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             valasztottInstruktor = document.getElementById('instruktorNev').value;
             valasztottAuto = document.getElementById('instruktorAuto').value;
 
-            // Küldjük a szervernek az infót
             socket.emit('instruktorBejelentkezes', { nev: valasztottInstruktor, auto: valasztottAuto });
 
-            // Felületek cseréje
             document.getElementById('loginCard').style.display = 'none';
             document.getElementById('mainPanel').style.display = 'block';
             document.getElementById('panelCim').innerHTML = `🏎️ Autó: <strong>${valasztottAuto}</strong>`;
             document.getElementById('instruktorBadge').innerHTML = `Pilóta: ${valasztottInstruktor}`;
         });
 
-        // 3. Élő lista frissítése és szűrése
+        // Élő lista frissítése és szűrése autók szerint
         socket.on('vendegekFrissitese', (vendegek) => {
-            if (!valasztottAuto) return; // Ha még nincs bejelentkezve, nem csinál semmit
+            if (!valasztottAuto) return;
 
             const tbody = document.getElementById('instruktorVendegLista');
             tbody.innerHTML = '';
 
-            // CSAK azokat a vendégeket szűrjük le, akik ehhez az autóhoz jöttek és nincsenek még kész porig
             const aktualisVendegek = vendegek.filter(v => v.auto === valasztottAuto && v.status !== 'TELJESÍTETT');
 
             if (aktualisVendegek.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888;">Nincs regisztrált vendég ehhez az autóhoz jelenleg.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #888; padding: 20px;">Nincs regisztrált vendég ehhez az autóhoz jelenleg.</td></tr>`;
                 return;
             }
 
-            // Sorba rendezzük őket tervezett időpont szerint
+            // Időpont szerinti rendezés
             aktualisVendegek.sort((a, b) => a.idopont.localeCompare(b.idopont));
 
             aktualisVendegek.forEach(v => {
@@ -131,7 +200,6 @@
                 let statusText = v.status;
                 let gombokHtml = '';
 
-                // Gombok logikája a státusztól függően
                 if (v.status === 'MEGÉRKEZETT') {
                     statusClass = 'status-yellow';
                     statusText = 'Irodánál kész';
@@ -139,11 +207,11 @@
                 } else if (v.status === 'VEZETÉSRE_VÁR') {
                     statusClass = 'status-green';
                     statusText = 'Vezetésre vár';
-                    gombokHtml = `<button class="btn-submit" style="padding: 6px 12px; font-size: 14px;" onclick="vendegHivasa('${v.id}')">📢 VENDÉG HÍVÁSA</button>`;
+                    gombokHtml = `<button class="btn-submit" style="background-color: #28a745; padding: 8px 15px; font-size: 14px;" onclick="vendegHivasa('${v.id}')">📢 VENDÉG HÍVÁSA</button>`;
                 } else if (v.status === 'BEHÍVVA') {
                     statusClass = 'status-blue';
                     statusText = 'Behívva';
-                    gombokHtml = `<button class="btn-submit" style="background-color: #dc3545; color: white; padding: 6px 12px; font-size: 14px;" onclick="menetLezarasa('${v.id}')">🏁 MENET LEZÁRÁSA</button>`;
+                    gombokHtml = `<button class="btn-submit" style="background-color: #dc3545; padding: 8px 15px; font-size: 14px;" onclick="menetLezarasa('${v.id}')">🏁 MENET LEZÁRÁSA</button>`;
                 }
 
                 tr.innerHTML = `
@@ -158,7 +226,6 @@
             });
         });
 
-        // Globális gomb funkciók a táblázatból
         window.vendegHivasa = function(id) {
             socket.emit('vendegHivasa', id);
         };
