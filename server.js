@@ -30,15 +30,34 @@ const INSTRUKTOROK = ["Bandi", "Csabi Huba", "Geri", "Sanya"];
 let vendegek = []; 
 let aktivInstruktorok = {}; 
 
-// --- API VÉGPONTOK (Garantált működés lekapcsolódás nélkül) ---
+// --- API VÉGPONTOK ---
 app.get('/api/autok', (req, res) => res.json(AUTOK));
 app.get('/api/instruktorok', (req, res) => res.json(INSTRUKTOROK));
 app.get('/api/vendegek', (req, res) => res.json(vendegek));
 
 // --- REAL-TIME LOGIKA (SOCKET.IO) ---
 io.on('connection', (socket) => {
+    // Amikor egy kliens csatlakozik, kiküldjük a friss listákat
     socket.emit('vendegekFrissitese', vendegek);
     socket.emit('instruktorokFrissitese', aktivInstruktorok);
+
+    // VENDÉG BELÉPÉS ELLENŐRZÉSE A SZERVEREN (Új, stabil rész)
+    socket.on('vendegBejelentkezesAzonosito', (keresettId) => {
+        const tisztaId = keresettId.trim().toUpperCase();
+        const talalat = vendegek.find(v => v.id === tisztaId);
+        
+        if (talalat) {
+            // Kiszámoljuk az aktuális sorszámot az autójánál
+            let helyezes = 0;
+            const azonosAutosok = vendegek.filter(v => v.auto === talalat.auto && v.status === 'VEZETÉSRE_VÁR');
+            const index = azonosAutosok.findIndex(v => v.id === talalat.id);
+            if(index !== -1) helyezes = index + 1;
+
+            socket.emit('vendegSikeresBelepes', { vendeg: talalat, queuePos: helyezes });
+        } else {
+            socket.emit('hiba', 'Ez az azonosító jelenleg nem található a mai listában! Kérd meg az adminisztrációt, hogy vegyen fel.');
+        }
+    });
 
     socket.on('ujVendeg', (ujVendegAdat) => {
         const vendeg = {
