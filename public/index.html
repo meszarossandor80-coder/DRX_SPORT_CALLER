@@ -157,7 +157,7 @@
             ratingVal.innerHTML = this.value + " / 10";
         }
 
-        // Belépés gombnyomás -> Lekérdezés a szervertől közvetlenül
+        // Belépés gombnyomás -> Lekérdezés a szervertől
         document.getElementById('login-btn').onclick = () => {
             const idInput = document.getElementById('guest-id-input').value.trim().toUpperCase();
             if(!idInput) return alert('Kérjük adj meg egy azonosítót!');
@@ -165,7 +165,7 @@
             socket.emit('vendegBejelentkezesAzonosito', idInput);
         };
 
-        // Sikeres belépés válasz
+        // Sikeres belépés válasz (A szerver adatstruktúrájához igazítva: nev, auto, korszam)
         socket.on('vendegSikeresBelepes', (data) => {
             currentGuestId = data.vendeg.id;
             loginSection.style.display = 'none';
@@ -173,7 +173,7 @@
             renderfelulet(data.vendeg, data.queuePos);
         });
 
-        // Élő frissítések lekezelése a szerver felől, ha már be vagyunk lépve
+        // Élő frissítések lekezelése (Javítva v.id-ra és magyar mezőnevekre)
         socket.on('vendegekFrissitese', (vendegek) => {
             if (currentGuestId) {
                 const en = vendegek.find(v => v.id === currentGuestId);
@@ -204,6 +204,7 @@
             location.reload();
         };
 
+        // Felület kirajzolása (Javítva backtick karakterekre: ` `)
         function renderfelulet(en, queuePos) {
             document.getElementById('welcome-name').innerText = `Szia, ${en.nev}!`;
             document.getElementById('car-info').innerText = `Autód: ${en.auto} (${en.korszam} kör)`;
@@ -217,6 +218,3 @@
             if (en.status === 'MEGÉRKEZETT') {
                 statusDisplay.innerText = 'Státusz: Megérkeztél';
                 statusDisplay.className = 'status-card status-megerkezett';
-                checkinSection.style.display = 'block';
-            } 
-            else if (en.status === 'VEZETÉSRE_VÁR') {
