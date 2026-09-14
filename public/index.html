@@ -3,164 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DRX SPORT - Vendég Bejelentkezés</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <title>DRX SPORT - Vendég Oldal</title>
+    <!-- Socket.io kliens könyvtár -->
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        .guest-container { max-width: 500px; margin: 0 auto; padding: 15px; }
-        .big-number { font-size: 64px; font-weight: bold; color: #ffcc00; text-align: center; margin: 20px 0; }
-        .rating-btn { padding: 12px; font-size: 18px; background: #333; color: white; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .rating-btn.active { background: #ffcc00; color: black; border-color: #ffcc00; }
-        .rating-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 15px 0; }
-        textarea { width: 100%; height: 80px; background: #333; color: white; border: 1px solid #444; padding: 10px; border-radius: 4px; resize: none; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background-color: #1e1e1e;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        h1 { color: #e10600; margin-bottom: 20px; font-size: 26px; }
+        .status-card {
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        /* Állapot stílusok */
+        .status-megerkezett { background-color: #333300; color: #ffcc00; border: 2px solid #ffcc00; }
+        .status-varakozik { background-color: #003311; color: #28a745; border: 2px solid #28a745; }
+        .status-behiva { 
+            background-color: #002244; color: #007bff; border: 2px solid #007bff;
+            animation: pulse 1s infinite alternate;
+        }
+        .status-teljesitett { background-color: #222; color: #888; border: 2px solid #444; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 10px #007bff; }
+            100% { box-shadow: 0 0 25px #007bff; }
+        }
+
+        /* Bejelentkező ablak */
+        .login-input {
+            width: 80%; padding: 12px; margin: 10px 0;
+            border-radius: 5px; border: 1px solid #444;
+            background-color: #2a2a2a; color: white; font-size: 16px; text-align: center;
+        }
+        .btn {
+            padding: 12px 30px; border: none; border-radius: 5px;
+            font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary { background-color: #e10600; color: white; }
+        .btn-success { background-color: #28a745; color: white; width: 85%; }
+
+        /* Értékelő felület */
+        .slider-container { width: 100%; margin: 25px 0; }
+        .slider { width: 85%; -webkit-appearance: none; height: 8px; border-radius: 5px; background: #444; outline: none; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #e10600; cursor: pointer; }
+        .slider-labels { display: flex; justify-content: space-between; width: 85%; margin: 5px auto; font-size: 12px; color: #aaa; }
+        .rating-num { font-size: 32px; font-weight: bold; color: #ffcc00; margin: 10px 0; }
+        textarea { width: 85%; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 5px; padding: 10px; resize: none; }
+        
+        /* Sziréna/Villogó effekt screen */
+        #siren-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; background-color: rgba(0, 0, 255, 0.4);
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
-    <div class="guest-container">
-        <h1>🏎️ DRX SPORT</h1>
 
-        <div id="phase-login" class="card">
-            <h2>Üdvözlünk a pályán!</h2>
-            <p style="margin-bottom: 15px; color: #aaa;">Kérjük, add meg az egyedi azonosítószámodat.</p>
-            <form id="guestLoginForm">
-                <div class="form-group">
-                    <label for="guestId">Egyedi azonosító:</label>
-                    <input type="text" id="guestId" required placeholder="Pl. DRX101" style="text-transform: uppercase;">
+    <div id="siren-overlay"></div>
+
+    <div class="container">
+        <h1>DRX SPORT</h1>
+        
+        <!-- 0. LÉPÉS: BEJELENTKEZÉS -->
+        <div id="login-section">
+            <p>Kérjük, add meg a regisztrációkor kapott azonosítódat!</p>
+            <input type="text" id="guest-id-input" class="login-input" placeholder="pl. DRX-104"><br>
+            <button id="login-btn" class="btn btn-primary">Belépés</button>
+        </div>
+
+        <!-- ÉLES VENDÉG PANEL (Sikeres belépés után jelenik meg) -->
+        <div id="main-panel" style="display: none;">
+            <h2 id="welcome-name">Üdvözlünk!</h2>
+            <p id="car-info" style="font-size: 16px; color: #bbb;"></p>
+
+            <!-- ÉLŐ STÁTUSZ KIJELZŐ -->
+            <div id="status-display" class="status-card">
+                Betöltés...
+            </div>
+
+            <!-- 1. FÁZIS: MEGÉRKEZETT állapotban lévő gomb -->
+            <div id="checkin-section" style="display: none; margin: 20px 0;">
+                <p>Ha készen állsz a vezetésre és a ruházatod is megfelelő, nyomj a bejelentkezésre!</p>
+                <button id="checkin-btn" class="btn btn-success">Becsekkolok a sorba</button>
+            </div>
+
+            <!-- 2. FÁZIS: SORREND SZÁMLÁLÓ -->
+            <div id="queue-section" style="display: none; margin: 20px 0;">
+                <p style="font-size: 16px;">Helyed a sorban az autódnál:</p>
+                <div id="queue-position" style="font-size: 48px; font-weight: bold; color: #e10600;">-</div>
+            </div>
+
+            <!-- 4. FÁZIS: PONTOSÍTOTT ÉRTÉKELŐ MEZŐ -->
+            <div id="evaluation-section" style="display: none; margin-top: 25px; border-top: 1px solid #444; padding-top: 20px;">
+                <h3 style="color: #28a745; margin-bottom: 5px;">🏁 Menet teljesítve!</h3>
+                
+                <!-- A kért konkrét finomított kérdés -->
+                <p style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #fff;">
+                    Mennyire voltál elégedett az instruktoroddal (a sofőrrel)?
+                </p>
+                
+                <div class="slider-container">
+                    <input type="range" id="rating-slider" class="slider" min="1" max="10" value="10">
+                    <div class="slider-labels">
+                        <span>1 - Egyáltalán nem</span>
+                        <span>10 - Teljesen</span>
+                    </div>
+                    <div id="rating-value" class="rating-num">10 / 10</div>
                 </div>
-                <button type="submit" class="btn-submit">Azonosítás</button>
-            </form>
-        </div>
 
-        <div id="phase-arrived" class="card" style="display: none;">
-            <div class="status-badge status-yellow" style="width: 100%; padding: 10px; margin-bottom: 20px; font-size: 16px;">Állapot: Megérkezett</div>
-            <h2 id="arrived-welcome">Szia!</h2>
-            <div style="margin: 20px 0; background: #333; padding: 15px; border-radius: 6px;">
-                <p><strong>Vezetett autó:</strong> <span id="arrived-car" style="color: #ffcc00;">-</span></p>
-                <p style="margin-top: 8px;"><strong>Körök száma:</strong> <span id="arrived-laps">-</span></p>
+                <p style="font-size: 14px; color: #bbb; text-align: left; width: 85%; margin: 5px auto;">Megjegyzés az instruktorhoz:</p>
+                <textarea id="feedback-text" placeholder="Írd meg ide, ha bármi észrevételed van..." rows="3"></textarea>
+                
+                <button id="submit-rating-btn" class="btn btn-success" style="margin-top: 20px;">Értékelés elküldése</button>
             </div>
-            <button id="btn-checkin" class="btn-submit" style="background-color: #28a745; color: white;">Bejelentkezés vezetésre</button>
-        </div>
-
-        <div id="phase-waiting" class="card" style="display: none;">
-            <div class="status-badge status-green" style="width: 100%; padding: 10px; margin-bottom: 20px; font-size: 16px;">Állapot: Vezetésre vár</div>
-            <h2 style="text-align: center;">Várakozók előtted:</h2>
-            <div id="queue-number" class="big-number">-</div>
-            <p style="text-align: center; color: #aaa;">Kérjük, maradj a depó közelében!</p>
-        </div>
-
-        <div id="phase-called" class="card" style="display: none; border: 3px solid #007bff;">
-            <div class="status-badge status-blue" style="width: 100%; padding: 10px; margin-bottom: 20px; font-size: 16px;">Állapot: BEHÍVVA</div>
-            <h2 style="text-align: center; color: #007bff; font-size: 26px;">📢 FÁRADJ AZ AUTÓHOZ!</h2>
-            <div style="background: #333; padding: 15px; border-radius: 6px; text-align: center; font-size: 20px; color: #ffcc00; margin-top: 15px;" id="called-car">-</div>
-        </div>
-
-        <div id="phase-rating" class="card" style="display: none;">
-            <h2>Köszönjük a vezetést! 🎉</h2>
-            <div class="rating-grid">
-                <button type="button" class="rating-btn" onclick="setRating(1)">1</button>
-                <button type="button" class="rating-btn" onclick="setRating(2)">2</button>
-                <button type="button" class="rating-btn" onclick="setRating(3)">3</button>
-                <button type="button" class="rating-btn" onclick="setRating(4)">4</button>
-                <button type="button" class="rating-btn" onclick="setRating(5)">5</button>
-                <button type="button" class="rating-btn" onclick="setRating(6)">6</button>
-                <button type="button" class="rating-btn" onclick="setRating(7)">7</button>
-                <button type="button" class="rating-btn" onclick="setRating(8)">8</button>
-                <button type="button" class="rating-btn" onclick="setRating(9)">9</button>
-                <button type="button" class="rating-btn" onclick="setRating(10)">10</button>
-            </div>
-            <textarea id="feedback" placeholder="Egyéb észrevételek..."></textarea>
-            <button id="btn-submit-rating" class="btn-submit" style="margin-top: 15px;">Küldés</button>
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Hangjelzés (Behíváskor sziréna) -->
+    <audio id="siren-sound" src="https://mixkit.co" preload="auto" loop></audio>
+
     <script>
         const socket = io();
-        let myId = null;
-        let selectedRating = null;
+        let currentGuestId = null;
+        let blinkInterval = null;
 
-        // Azonosítás közvetlen API-val, ami SOHA nem akad el
-        document.getElementById('guestLoginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const inputId = document.getElementById('guestId').value.trim().toUpperCase();
+        const loginSection = document.getElementById('login-section');
+        const mainPanel = document.getElementById('main-panel');
+        const statusDisplay = document.getElementById('status-display');
+        const checkinSection = document.getElementById('checkin-section');
+        const queueSection = document.getElementById('queue-section');
+        const evaluationSection = document.getElementById('evaluation-section');
+        const overlay = document.getElementById('siren-overlay');
+        const audio = document.getElementById('siren-sound');
+
+        // Csúszka értékének élő frissítése
+        const slider = document.getElementById('rating-slider');
+        const ratingVal = document.getElementById('rating-value');
+        slider.oninput = function() {
+            ratingVal.innerHTML = this.value + " / 10";
+        }
+
+        // Belépés kezelése
+        document.getElementById('login-btn').onclick = () => {
+            const idInput = document.getElementById('guest-id-input').value.trim();
+            if(!idInput) return alert('Kérjük adj meg egy azonosítót!');
             
-            fetch('/api/vendegek')
-                .then(res => res.json())
-                .then(vendegek => {
-                    const me = vendegek.find(v => v.id === inputId);
-                    if (!me) {
-                        alert("Ez az azonosító nem létezik az irodai listában!");
-                    } else {
-                        myId = inputId;
-                        frissitFelület(vendegek);
-                        listenToMyEvents();
-                    }
-                });
-        });
-
-        document.getElementById('btn-checkin').addEventListener('click', () => {
-            if (myId) socket.emit('vendegBejelentkezesVezetesre', myId);
-        });
-
-        window.setRating = function(num) {
-            selectedRating = num;
-            document.querySelectorAll('.rating-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            currentGuestId = idInput;
+            socket.emit('guest-login', currentGuestId);
         };
 
-        document.getElementById('btn-submit-rating').addEventListener('click', () => {
-            if(!selectedRating) { alert("Válassz pontszámot!"); return; }
-            socket.emit('ertekelesBekuldese', { vendegId: myId, pontszam: selectedRating, eszrevetel: document.getElementById('feedback').value });
-            alert("Köszönjük!");
-            location.reload();
+        // Regisztráció/Belépés válasz a szervertől
+        socket.on('guest-data', (data) => {
+            if(!data) return alert('Ez az azonosító nem található a mai listában!');
+            
+            loginSection.style.display = 'none';
+            mainPanel.style.display = 'block';
+            document.getElementById('welcome-name').innerText = `Szia, ${data.name}!`;
+            document.getElementById('car-info').innerText = `Autód: ${data.car} (${data.laps} kör)`;
+            
+            updateUIByStatus(data.status, data.queuePos);
         });
 
-        socket.on('vendegekFrissitese', (vendegek) => {
-            if (myId) frissitFelület(vendegek);
-        });
-
-        function frissitFelület(vendegek) {
-            const me = vendegek.find(v => v.id === myId);
-            if (!me) return;
-
-            document.getElementById('phase-login').style.display = 'none';
-            document.getElementById('phase-arrived').style.display = 'none';
-            document.getElementById('phase-waiting').style.display = 'none';
-            document.getElementById('phase-called').style.display = 'none';
-            document.getElementById('phase-rating').style.display = 'none';
-
-            if (me.status === 'MEGÉRKEZETT') {
-                document.getElementById('phase-arrived').style.display = 'block';
-                document.getElementById('arrived-welcome').innerHTML = `Szia, ${me.nev}!`;
-                document.getElementById('arrived-car').innerHTML = me.auto;
-                document.getElementById('arrived-laps').innerHTML = `${me.korszam} kör`;
-            } else if (me.status === 'VEZETÉSRE_VÁR') {
-                document.getElementById('phase-waiting').style.display = 'block';
-                const azonosAutosok = vendegek.filter(v => v.auto === me.auto && v.status === 'VEZETÉSRE_VÁR');
-                azonosAutosok.sort((a, b) => a.idopont.localeCompare(b.idopont));
-                const index = azonosAutosok.findIndex(v => v.id === myId);
-                document.getElementById('queue-number').innerHTML = index;
-            } else if (me.status === 'BEHÍVVA') {
-                document.getElementById('phase-called').style.display = 'block';
-                document.getElementById('called-car').innerHTML = me.auto;
-            } else if (me.status === 'TELJESÍTETT' && me.ertekeles === null) {
-                document.getElementById('phase-rating').style.display = 'block';
+        // Élő státuszfrissítés a szervertől (Socket.io-n keresztül)
+        socket.on('status-updated', (data) => {
+            if(data.id === currentGuestId) {
+                updateUIByStatus(data.status, data.queuePos);
             }
-        }
+        });
 
-        function listenToMyEvents() {
-            socket.off(`hangjelzes_${myId}`);
-            socket.on(`hangjelzes_${myId}`, () => {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-                osc.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.4);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                osc.start(); osc.stop(audioCtx.currentTime + 1);
-            });
-        }
-    </script>
-</body>
-</html>
+        // Becsekkolás (Amikor a vendég "Vezetésre vár" állapotba teszi magát)
+        document.getElementById('checkin-btn').onclick = () => {
+            socket.emit('guest-checkin', currentGuestId);
+        };
+
+        // Értékelés beküldése
+        document.getElementById('submit-rating-btn').onclick = () => {
+            const rating = slider.value;
+            const feedback = document.getElementById('feedback-text').value.trim();
+            
+            socket.emit('submit-rating', { id: currentGuestId, rating, feedback });
+            
+            alert('Köszönjük az értékelést! Jó utat kívánunk!');
+            location.reload(); // Visszaáll az alaphelyzetbe
+        };
+
+        // Felület vezérlése az állapotgép alapján
+        function updateUIByStatus(status, queuePos) {
+            // Alaphelyzetbe állítások
+            statusDisplay.className = 'status-card';
+            checkinSection.style.display = 'none';
+            queueSection.style.display = 'none';
+            evaluationSection.style.display = 'none';
+            stopSirenEffects();
+
+            if (status === 'MEGÉRKEZETT') {
+                statusDisplay.innerText = 'Státusz: Megérkeztél';
