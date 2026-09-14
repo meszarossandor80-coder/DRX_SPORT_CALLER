@@ -4,7 +4,107 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DRX SPORT - Irodai Érkeztető Panel</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        h1 { color: #e10600; text-align: center; margin-bottom: 30px; }
+        .card {
+            background-color: #1e1e1e;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+        }
+        h2 { color: #fff; border-bottom: 2px solid #e10600; padding-bottom: 10px; margin-top: 0; }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #ccc;
+        }
+        input[type="text"], input[type="time"], select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+            color: white;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        .checkbox-group label {
+            font-weight: normal;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-submit {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: 0.2s;
+        }
+        .btn-submit:hover { background-color: #218838; }
+        
+        .table-responsive { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: #1a1a1a;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th { background-color: #252525; color: #aaa; }
+        
+        /* Státusz jelvények */
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .status-yellow { background-color: #ffcc00; color: #000; }
+        .status-green { background-color: #28a745; color: #fff; }
+        .status-blue { background-color: #007bff; color: #fff; }
+        .status-gray { background-color: #6c757d; color: #fff; }
+        
+        .eszrevetel-szoveg { color: #ffcc00; font-style: italic; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -31,16 +131,12 @@
 
                 <div class="form-group">
                     <label for="autoLista">Autó Típusa:</label>
-                    <select id="autoLista" required>
-                        <!-- A szerver automatikusan feltölti a 13 autóval -->
-                    </select>
+                    <select id="autoLista" required></select>
                 </div>
 
                 <div class="form-group">
                     <label for="korszam">Körök Száma:</label>
-                    <select id="korszam" required>
-                        <!-- JavaScript fogja feltölteni 1-től 15-ig -->
-                    </select>
+                    <select id="korszam" required></select>
                 </div>
 
                 <div class="form-group">
@@ -75,47 +171,50 @@
                             <th>Észrevétel</th>
                         </tr>
                     </thead>
-                    <tbody id="irodaVendegLista">
-                        <!-- Ide érkeznek valós időben a vendégek -->
-                    </tbody>
+                    <tbody id="irodaVendegLista"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Socket.io és Kliens JS -->
-    <script src="/socket.io/socket.io.js"></script>
     <script>
-        // Feltöltjük a körszámokat 1-től 15-ig a legördülőben
-        const korszamSelect = document.getElementById('korszam');
-        for (let i = 1; i <= 15; i++) {
-            let opt = document.createElement('option');
-            opt.value = i;
-            opt.innerHTML = `${i} kör`;
-            korszamSelect.appendChild(opt);
+        // Funkció a listák kezdeti feltöltéséhez
+        function listakBetoltese() {
+            // Körök feltöltése
+            const korszamSelect = document.getElementById('korszam');
+            korszamSelect.innerHTML = '';
+            for (let i = 1; i <= 15; i++) {
+                let opt = document.createElement('option');
+                opt.value = i;
+                opt.innerHTML = `${i} kör`;
+                if(i === 5) opt.selected = true; // Alapértelmezett 5 kör
+                korszamSelect.appendChild(opt);
+            }
+
+            // Autók feltöltése API-ból
+            fetch('/api/autok')
+                .then(res => res.json())
+                .then(autok => {
+                    const autoSelect = document.getElementById('autoLista');
+                    autoSelect.innerHTML = '';
+                    autok.forEach(auto => {
+                        let opt = document.createElement('option');
+                        opt.value = auto;
+                        opt.innerHTML = auto;
+                        autoSelect.appendChild(opt);
+                    });
+                });
         }
 
-        // Lekérjük a 13 autót a szerverről automatikusan
-        fetch('/api/autok')
-            .then(res => res.json())
-            .then(autok => {
-                const autoSelect = document.getElementById('autoLista');
-                autok.forEach(auto => {
-                    let opt = document.createElement('option');
-                    opt.value = auto;
-                    opt.innerHTML = auto;
-                    autoSelect.appendChild(opt);
-                });
-            });
+        // Első betöltés futtatása
+        listakBetoltese();
 
-        // Csatlakozás a szerverhez valós időben
         const socket = io();
 
-        // Űrlap elküldése (Vendég regisztráció)
+        // Űrlap elküldése
         document.getElementById('irodaForm').addEventListener('submit', (e) => {
             e.preventDefault();
             
-            // Kiválasztott checkboxok összegyűjtése
             const checkedExtras = [];
             document.querySelectorAll('input[name="extra"]:checked').forEach(cb => {
                 checkedExtras.push(cb.value);
@@ -131,23 +230,17 @@
             };
 
             socket.emit('ujVendeg', ujVendeg);
+            
+            // Reset és az autó/kör listák biztonságos újragenerálása
             document.getElementById('irodaForm').reset();
-            // Újraépítjük a körszámokat a reset után
-            korszamSelect.innerHTML = '';
-            for (let i = 1; i <= 15; i++) {
-                let opt = document.createElement('option');
-                opt.value = i;
-                opt.innerHTML = `${i} kör`;
-                korszamSelect.appendChild(opt);
-            }
+            listakBetoltese();
         });
 
-        // Hibaüzenet kezelése (pl. ha már létezik az ID)
         socket.on('hiba', (uzenet) => {
             alert(uzenet);
         });
 
-        // Élő táblázat frissítése a szerverről kapott adatokkal
+        // Táblázat élő frissítése
         socket.on('vendegekFrissitese', (vendegek) => {
             const tbody = document.getElementById('irodaVendegLista');
             tbody.innerHTML = '';
@@ -155,7 +248,6 @@
             vendegek.forEach(v => {
                 const tr = document.createElement('tr');
                 
-                // Állapot szín beállítása a logikád szerint
                 let statusClass = '';
                 let statusText = v.status;
                 if (v.status === 'MEGÉRKEZETT') statusClass = 'status-yellow';
