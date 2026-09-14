@@ -5,7 +5,15 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+// GOLYÓÁLLÓ SOCKET.IO BEÁLLÍTÁS CORS ENGEDÉLYEZÉSSEL MINDEN MOBILESZKÖZHÖZ
+const io = new Server(server, {
+    cors: {
+        origin: "*", // Engedélyezi az összes külső telefont és hálózatot
+        methods: ["GET", "POST"],
+        transports: ['websocket', 'polling']
+    }
+});
 
 const PORT = process.env.PORT || 10000;
 
@@ -21,7 +29,7 @@ app.get('/instructor.html', (req, res) => res.sendFile(path.join(__dirname, 'pub
 const AUTOK = [
     "Ferrari 458", "Ferrari 458 Challenge", "Lamborghini Huracane", 
     "Dodge Challenger Hellcat", "Ferrari 488", "Ferrari F8", 
-    "Mercedes-AMG GT 63 Pro", "Porsche 911 GT3", "Mustang eleanor", 
+    "Mercedes-AMG GT 63 Pro", "Porsche GT3", "Mustang eleanor", 
     "Ford Mustang Shelby GT350", "Nissan GT-R", "Formula", "Mitsubishi Evo IX"
 ];
 const INSTRUKTOROK = ["Bandi", "Csabi Huba", "Geri", "Sanya"];
@@ -41,7 +49,7 @@ io.on('connection', (socket) => {
     socket.emit('vendegekFrissitese', vendegek);
     socket.emit('instruktorokFrissitese', aktivInstruktorok);
 
-    // VENDÉG BELÉPÉS ELLENŐRZÉSE A SZERVEREN (Új, stabil rész)
+    // VENDÉG BELÉPÉS ELLENŐRZÉSE A SZERVEREN
     socket.on('vendegBejelentkezesAzonosito', (keresettId) => {
         const tisztaId = keresettId.trim().toUpperCase();
         const talalat = vendegek.find(v => v.id === tisztaId);
@@ -120,6 +128,7 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`A DRX Rendszer elindult a ${PORT}-es porton.`);
+// SZERVER INDÍTÁSA HOST BEÁLLÍTÁSSAL RENDERHEZ
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`A DRX Rendszer elindult a ${PORT}-es porton a 0.0.0.0 címen.`);
 });
