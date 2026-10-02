@@ -1,31 +1,23 @@
 /* ==========================================================================
-   DRX SPORT 2.0 - PRÉMIUM VERSENYAUTÓS & KARBON STÍLUSLAP
+   DRX SPORT 2.0 - HIVATALOS WEBOLDAL ALAPÚ PREMIUM RACING DESIGN
    ========================================================================== */
 
-/* --- IMPORTÁLT VERSENY TIPOGRÁFIA --- */
+/* --- HIVATALOS DRX SPORT FONTOK --- */
 @import url('https://googleapis.com');
 
-/* --- GLOBÁLIS STÍLUSOK --- */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Montserrat', 'Segoe UI', sans-serif;
+    font-family: 'Barlow', 'Segoe UI', sans-serif;
 }
 
-/* Prémium Sötét Karbon mintás háttér (Képek nélkül, tiszta CSS-szel a maximális sebességért) */
+/* A hivatalos weboldal tiszta, mélyfekete háttérstílusa */
 body {
-    background-color: #0a0c10;
-    background-image: 
-        linear-gradient(27deg, #131722 5%, transparent 5%), 
-        linear-gradient(207deg, #131722 5%, transparent 5%), 
-        linear-gradient(127deg, #131722 5%, transparent 5%), 
-        linear-gradient(307deg, #131722 5%, transparent 5%);
-    background-size: 16px 16px;
-    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
-    color: #f1f5f9;
+    background-color: #0b0c0e;
+    color: #ffffff;
     padding: 24px;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
 }
 
 .container {
@@ -33,41 +25,40 @@ body {
     margin: 0 auto;
 }
 
-/* Verseny piros és neon sárga átmenetes főcím */
+/* Hivatalos DRX Piros-Fehér Kontrasztos Főcím */
 h1 {
     text-align: center;
     margin-bottom: 35px;
-    font-weight: 800;
-    font-size: 2.2rem;
-    background: linear-gradient(135deg, #ffcc00 0%, #e50914 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-weight: 900;
+    font-size: 2.5rem;
+    color: #ffffff;
     text-transform: uppercase;
-    letter-spacing: 3px;
-    filter: drop-shadow(0 2px 8px rgba(229, 9, 20, 0.3));
+    letter-spacing: 4px;
+    border-left: 5px solid #e50914; /* DRX Brand Piros éljelzés */
+    padding-left: 15px;
+    display: inline-block;
+    width: 100%;
 }
 
 h2 {
     margin-bottom: 20px;
-    border-bottom: 2px solid #e50914; /* Verseny piros választóvonal */
+    border-bottom: 3px solid #e50914; /* DRX Brand Piros */
     padding-bottom: 8px;
     color: #ffffff;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
-    font-size: 1.3rem;
+    letter-spacing: 2px;
+    font-size: 1.4rem;
 }
 
-/* --- KÁRTYA ELRENDEZÉS (Glow és Glassmorphism hatás) --- */
+/* --- KÁRTYA ELRENDEZÉS (Hivatalos letisztult, sötétszürke blokkok) --- */
 .card {
-    background: rgba(22, 28, 38, 0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
+    background-color: #121418; /* DRX weboldal kártya-szín */
+    border: 1px solid #1c1f26;
+    border-radius: 6px;
     padding: 30px;
     margin-bottom: 30px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 /* --- ŰRLAPOK (FORMS) --- */
@@ -78,20 +69,20 @@ h2 {
 label {
     display: block;
     margin-bottom: 10px;
-    font-weight: 600;
+    font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
-    font-size: 13px;
-    letter-spacing: 1px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
 }
 
 input[type="text"], input[type="time"], select {
     width: 100%;
     padding: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background-color: #121620;
-    color: #fff;
-    border-radius: 6px;
+    border: 1px solid #222731;
+    background-color: #0b0c0e;
+    color: #ffffff;
+    border-radius: 4px;
     font-size: 16px;
     font-weight: 600;
     transition: all 0.2s ease;
@@ -99,19 +90,18 @@ input[type="text"], input[type="time"], select {
 
 input:focus, select:focus {
     outline: none;
-    border-color: #ffcc00;
-    box-shadow: 0 0 10px rgba(255, 204, 0, 0.2);
-    background-color: #161b26;
+    border-color: #e50914; /* Fókusz esetén DRX pirosra vált */
+    background-color: #121418;
 }
 
 .checkbox-group {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 12px;
-    background-color: #121620;
+    background-color: #0b0c0e;
     padding: 18px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    border: 1px solid #222731;
 }
 
 .checkbox-group label {
@@ -120,37 +110,35 @@ input:focus, select:focus {
     gap: 10px;
     cursor: pointer;
     font-weight: 600;
-    color: #e2e8f0;
+    color: #ffffff;
     margin-bottom: 0;
 }
 
 .checkbox-group input {
     width: 20px;
     height: 20px;
-    accent-color: #ffcc00;
+    accent-color: #e50914;
     cursor: pointer;
 }
 
-/* Versenyautós Indítógomb stílus */
+/* --- HIVATALOS DRX GOMB STÍLUS (Teli piros, fehér szöveggel, robusztus motorsport töréssel) --- */
 .btn-submit {
-    background: linear-gradient(135deg, #e50914 0%, #b3040b 100%);
+    background-color: #e50914;
     color: #ffffff;
     border: none;
     padding: 16px 24px;
     font-size: 16px;
-    font-weight: 800;
-    border-radius: 6px;
+    font-weight: 900;
+    border-radius: 4px;
     cursor: pointer;
     width: 100%;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
-    box-shadow: 0 4px 15px rgba(229, 9, 20, 0.4);
+    letter-spacing: 2px;
 }
 
 .btn-submit:hover {
-    background: linear-gradient(135deg, #ff1a25 0%, #e50914 100%);
-    box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6);
+    background-color: #ff121d;
     transform: translateY(-1px);
 }
 
@@ -158,100 +146,102 @@ input:focus, select:focus {
     transform: translateY(1px);
 }
 
-/* --- TÁBLÁZAT STÍLUSOK (ADMIN) --- */
+/* --- TÁBLÁZAT STÍLUSOK (ADMIN ÉS IRODA) --- */
 .table-responsive {
     overflow-x: auto;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    border: 1px solid #1c1f26;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    background-color: #121620;
+    background-color: #121418;
     text-align: left;
 }
 
 th, td {
     padding: 14px 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid #1c1f26;
     font-size: 15px;
 }
 
 th {
-    background-color: #171d29;
-    color: #ffcc00;
-    font-weight: 600;
+    background-color: #191c22;
+    color: #ffffff;
+    font-weight: 700;
     text-transform: uppercase;
-    font-size: 13px;
-    letter-spacing: 1px;
+    font-size: 12px;
+    letter-spacing: 1.5px;
 }
 
 tr {
-    transition: background-color 0.15s ease;
+    transition: background-color 0.1s ease;
 }
 
 tr:hover {
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: rgba(255, 255, 255, 0.02);
 }
 
-/* --- VALÓS IDEJŰ ÁLLAPOT SZÍNEK (NEON DESIGN) --- */
+/* --- VALÓS IDEJŰ RACING ÁLLAPOTOK (NEON RACING BADGES) --- */
 .status-badge {
     display: inline-block;
     padding: 6px 14px;
-    border-radius: 4px; /* Sportosabb box-stílus a lekerekített helyett */
-    font-weight: 800;
+    border-radius: 3px;
+    font-weight: 900;
     text-transform: uppercase;
     font-size: 12px;
     text-align: center;
     letter-spacing: 1px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Sárga: Megérkezett (Neon borostyán) */
+/* Sárga: Megérkezett (Várakozási fázis) */
 .status-yellow {
     background-color: #ffcc00;
     color: #000000;
-    box-shadow: 0 0 12px rgba(255, 204, 0, 0.3);
 }
 
-/* Zöld: Vezetésre vár (Rajtzöld) */
+/* Zöld: Vezetésre vár (Pálya kész, zöld zászló) */
 .status-green {
-    background-color: #10b981;
+    background-color: #00b050;
     color: #ffffff;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
 }
 
-/* Kék: Behívva (Sziréna villogás, agresszívebb neonkék fénnyel) */
+/* Kék: Behívva (Sziréna villogás, a hivatalos kék tónussal) */
 .status-blue {
-    background-color: #2563eb;
+    background-color: #0070c0;
     color: #ffffff;
-    animation: pulse 1.2s infinite ease-in-out;
-    box-shadow: 0 0 15px rgba(37, 99, 235, 0.6);
+    animation: drxPulse 1.2s infinite ease-in-out;
 }
 
-/* Szürke: Teljesített (Leintett kockás zászló tónus) */
+/* Szürke: Teljesített (Kockás zászló tónus) */
 .status-gray {
-    background-color: #475569;
-    color: #cbd5e1;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #333a42;
+    color: #94a3b8;
+    border: 1px solid #475569;
 }
 
-/* Finomabb, pulzáló neon ragyogás effekt a behíváshoz */
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
-    }
-    50% {
-        transform: scale(1.03);
-        box-shadow: 0 0 25px rgba(37, 99, 235, 0.8), 0 0 35px rgba(37, 99, 235, 0.4);
-        background-color: #3b82f6;
-    }
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
-    }
+/* Szigorú, ütemes villogás a behívott vendég telefonjára */
+@keyframes drxPulse {
+    0% { background-color: #0070c0; box-shadow: 0 0 10px rgba(0, 112, 192, 0.5); }
+    50% { background-color: #00a2ff; box-shadow: 0 0 25px rgba(0, 162, 255, 0.8); }
+    100% { background-color: #0070c0; box-shadow: 0 0 10px rgba(0, 112, 192, 0.5); }
+}
+
+/* --- HIVATALOS AUTÓ KÉPEK HÁTTÉR BEKÖTÉSE (Példa a kiterjesztéshez) --- */
+/* Ha a HTML-ben az autóknak adsz egy egyedi osztályt (pl. class="car-card ferrari"), 
+   akkor a hivatalos oldal képeit így tudod behozni mögéjük: */
+
+.car-bg-ferrari {
+    background-image: linear-gradient(rgba(18, 20, 24, 0.85), #121418), url('https://drxsport.hu');
+    background-size: cover;
+    background-position: center;
+}
+
+.car-bg-eleanor {
+    background-image: linear-gradient(rgba(18, 20, 24, 0.85), #121418), url('https://drxsport.hu');
+    background-size: cover;
+    background-position: center;
 }
 
 .eszrevetel-szoveg {
